@@ -2,21 +2,21 @@ namespace hsn;
 
 /** SAP General Material Data — no description field in real SAP (see MAKT). */
 entity MARA {
-  key MaterialNumber : String(18);
+  key MaterialNumber : String(40);
       MaterialGroup   : String(9);  // MATKL — reserved for a future scoring signal, not used yet
       MaterialType    : String(4);  // MTART
 }
 
 /** SAP Material Descriptions — MAKTX is the actual free text used for matching. */
 entity MAKT {
-  key MaterialNumber : String(18);
+  key MaterialNumber : String(40);
   key Language        : String(2) default 'EN';
       Description      : String(100);
 }
 
 /** SAP Plant Data for Material — plant-specific context, not used in matching itself. */
 entity MARC {
-  key MaterialNumber : String(18);
+  key MaterialNumber : String(40);
   key Plant           : String(4);
 }
 
@@ -35,14 +35,14 @@ entity GovtSACMaster {
 /** Self-learning corpus: every human-approved suggestion becomes a new, high-trust,
  *  exact-company-vocabulary example that future BM25 lookups match against first. */
 entity ApprovedClassifications {
-  key MaterialNumber : String(18);
+  key MaterialNumber : String(40);
       Description     : String(100);
       HSN              : String(8);
       ApprovedAt       : Timestamp;
 }
 
 entity CandidateSuggestions {
-  key MaterialNumber : String;
+  key MaterialNumber : String(40);
   key Rank           : Integer;
   CandidateCode      : String;
   Score              : Decimal(5,2);
@@ -50,13 +50,13 @@ entity CandidateSuggestions {
 
 // HANA Native Vector Storage
 entity MaterialEmbeddings {
-  key MaterialNumber : String;
+  key MaterialNumber : String(40);
   Embedding          : LargeString; // In HANA, this is mapped to REAL_VECTOR(1536) via native HANA SQL or CDS annotations
 }
 
 /** Legacy classification queue (dummy HSN 9999 until approved). */
 entity ZMM_MAT_LEGACY {
-  key MaterialNumber : String(18);
+  key MaterialNumber : String(40);
       HSN              : String(8) default '9999';
       ClassifiedAt     : Timestamp;
 }
