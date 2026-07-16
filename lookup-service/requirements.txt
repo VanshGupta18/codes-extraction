@@ -1,11 +1,8 @@
 fastapi
 uvicorn[standard]
 httpx
+rank_bm25
 pandas
 openpyxl
 python-dotenv
 numpy
-hdbcli
-redis
-pika
-sqlalchemy-hana

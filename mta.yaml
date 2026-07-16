@@ -60,7 +60,7 @@ resources:
     type: org.cloudfoundry.managed-service
     parameters:
       service: enterprise-messaging
-      service-plan: default
+      service-plan: standard
       path: ./event-mesh.json
 
   - name: hsn-redis

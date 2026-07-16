@@ -1,70 +1,75 @@
-import os
-from hdbcli import dbapi
-
-HANA_HOST = os.environ.get("HANA_HOST")
-HANA_PORT = int(os.environ.get("HANA_PORT", "39015"))
-HANA_USER = os.environ.get("HANA_USER")
-HANA_PASSWORD = os.environ.get("HANA_PASSWORD")
-
-def _get_hana_conn():
-    if not HANA_HOST:
-        return None
-    return dbapi.connect(
-        address=HANA_HOST,
-        port=HANA_PORT,
-        user=HANA_USER,
-        password=HANA_PASSWORD
-    )
+import numpy as np
+from rank_bm25 import BM25Okapi
 
 class Index:
     def __init__(self, fallback_rows=None, fallback_affinity=None):
-        self.fallback_rows = fallback_rows or []
-        self.fallback_affinity = fallback_affinity or {}
+        self.rows = fallback_rows or []
+        self.affinity = fallback_affinity or {}
+        
+        self.corpus = [r["Description"].lower() for r in self.rows]
+        self.tokenized_corpus = [doc.split(" ") for doc in self.corpus]
+        
+        if self.tokenized_corpus:
+            self.bm25 = BM25Okapi(self.tokenized_corpus)
+            embeddings = [r.get("Embedding", np.zeros(1536)) for r in self.rows]
+            self.embeddings_matrix = np.array(embeddings)
+            norms = np.linalg.norm(self.embeddings_matrix, axis=1, keepdims=True)
+            norms[norms == 0] = 1
+            self.embeddings_norm = self.embeddings_matrix / norms
+        else:
+            self.bm25 = None
+            self.embeddings_matrix = np.empty((0, 1536))
+            self.embeddings_norm = np.empty((0, 1536))
 
     def top_matches(self, description: str, embedding, material_group: str = None, n: int = 3) -> list[dict]:
-        conn = _get_hana_conn()
-        if not conn:
-            # Local fallback (mock) if HANA is not configured
-            return self._fallback_top_matches(description, embedding, material_group, n)
-
-        cursor = conn.cursor()
-        try:
-            emb_str = f"[{','.join(map(str, embedding.tolist()))}]"
+        if not self.rows:
+            return []
             
-            # Using HANA Vector Engine (VECTOR_SIMILARITY) and HANA Full Text Search (SCORE())
-            # We select from our Govt Tables and Approved Classifications
-            query = f"""
-                SELECT TOP {n}
-                    c."CODE",
-                    c."DESCRIPTION",
-                    VECTOR_SIMILARITY(e."EMBEDDING", TO_REAL_VECTOR(?)) AS "COS_SIM",
-                    SCORE() AS "FTS_SCORE"
-                FROM "ALL_CANDIDATES_VIEW" c
-                JOIN "HSN_MATERIALEMBEDDINGS" e ON c."CODE" = e."MATERIALNUMBER"
-                WHERE CONTAINS(c."DESCRIPTION", ?, EXACT)
-                ORDER BY ("COS_SIM" * 10 + "FTS_SCORE") DESC
-            """
-            cursor.execute(query, (emb_str, description))
-            results = []
-            for row in cursor.fetchall():
-                score = round(float(row[2] * 10 + row[3]), 2)
-                # Material Group Boosting Logic can be done here or in SQL
-                results.append({
-                    "Code": row[0],
-                    "Description": row[1],
-                    "score": score
-                })
-            return results
-        finally:
-            cursor.close()
-            conn.close()
+        tokenized_query = description.lower().split(" ")
+        bm25_scores = self.bm25.get_scores(tokenized_query)
+        
+        q = np.array(embedding)
+        q_norm = np.linalg.norm(q)
+        if q_norm > 0:
+            q = q / q_norm
+        else:
+            q = np.zeros(1536)
+            
+        cos_sim = np.dot(self.embeddings_norm, q)
+        
+        # Hybrid score: heavily weight BM25, add cosine as tie breaker
+        hybrid_scores = bm25_scores + (cos_sim * 10)
+        
+        # Apply Material Group Boosting
+        if material_group and material_group in self.affinity:
+            affinity_chapter = self.affinity[material_group]
+            for i, row in enumerate(self.rows):
+                if row["Code"].startswith(affinity_chapter):
+                    hybrid_scores[i] *= 1.20 # 20% boost
 
-    def _fallback_top_matches(self, description, embedding, material_group, n):
-        # Fallback to a mock response if run locally without HANA
-        return [
-            {"Code": "MOCK1", "Description": "HANA Not Configured", "score": 9.99},
-            {"Code": "MOCK2", "Description": "HANA Not Configured", "score": 8.88}
-        ]
+        top_indices = np.argsort(hybrid_scores)[::-1][:n]
+        
+        results = []
+        for idx in top_indices:
+            results.append({
+                "Code": self.rows[idx]["Code"],
+                "Description": self.rows[idx]["Description"],
+                "score": round(float(hybrid_scores[idx]), 2)
+            })
+            
+        return results
 
     def add_document(self, row: dict):
-        pass # Handled by Event Mesh in production
+        self.rows.append(row)
+        desc = row["Description"].lower()
+        self.corpus.append(desc)
+        self.tokenized_corpus.append(desc.split(" "))
+        
+        # Rebuild BM25 entirely (fast enough for small incremental updates)
+        self.bm25 = BM25Okapi(self.tokenized_corpus)
+        
+        emb = row.get("Embedding", np.zeros(1536))
+        emb_norm = emb / (np.linalg.norm(emb) or 1)
+        
+        self.embeddings_matrix = np.vstack([self.embeddings_matrix, emb])
+        self.embeddings_norm = np.vstack([self.embeddings_norm, emb_norm])

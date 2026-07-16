@@ -1,8 +1,8 @@
 import os
+import json
 import asyncio
 import httpx
 import numpy as np
-import redis
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -11,20 +11,29 @@ TOKEN_URL = os.environ.get("TOKEN_URL", "")
 CLIENT_ID = os.environ.get("CLIENT_ID", "")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET", "")
 MODEL_BASE_URL = os.environ.get("MODEL_BASE_URL", "")
-MODEL_ENDPOINT = os.environ.get("MODEL_ENDPOINT", "/chat/completions")
 EMBEDDING_MODEL_BASE_URL = os.environ.get("EMBEDDING_MODEL_BASE_URL", "")
-
-REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-try:
-    redis_client = redis.from_url(REDIS_URL)
-    redis_client.ping()
-except Exception:
-    redis_client = None
 
 _token: str | None = None
 _api_failed = False
 _client = httpx.AsyncClient()
 _token_lock = asyncio.Lock()
+
+CACHE_FILE = os.path.join(os.path.dirname(__file__), "embeddings_cache.json")
+
+def load_cache():
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_cache():
+    with open(CACHE_FILE, "w") as f:
+        json.dump(_embeddings_cache, f)
+
+_embeddings_cache = load_cache()
 
 async def _get_token() -> str:
     global _token, _api_failed
@@ -54,11 +63,8 @@ async def get_embedding(text: str) -> np.ndarray:
     if not text:
         return np.zeros(1536)
         
-    cache_key = f"embedding:{text}"
-    if redis_client:
-        cached = redis_client.get(cache_key)
-        if cached:
-            return np.frombuffer(cached, dtype=np.float64)
+    if text in _embeddings_cache:
+        return np.array(_embeddings_cache[text])
 
     token = await _get_token()
     if token and not _api_failed and EMBEDDING_MODEL_BASE_URL:
@@ -73,15 +79,16 @@ async def get_embedding(text: str) -> np.ndarray:
         try:
             resp = await _client.post(url, headers=headers, json=payload)
             if resp.status_code == 200:
-                vec = np.array(resp.json()["data"][0]["embedding"], dtype=np.float64)
-                if redis_client:
-                    redis_client.set(cache_key, vec.tobytes())
+                vec = np.array(resp.json()["data"][0]["embedding"])
+                _embeddings_cache[text] = vec.tolist()
+                save_cache()
                 return vec
             elif resp.status_code == 404:
                 _api_failed = True
         except Exception:
             _api_failed = True
 
+    # Fallback to a normalized random vector if API fails (circuit broken)
     vec = np.random.rand(1536)
     vec = vec / np.linalg.norm(vec)
     return vec
