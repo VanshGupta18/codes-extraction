@@ -48,10 +48,10 @@ async def approve_classification(material_number: str, description: str, hsn: st
     
     async with httpx.AsyncClient(base_url=CAP_BASE_URL) as client:
         # 1. Post to ApprovedClassifications (learning corpus)
-        resp = await client.post(
-            "/ApprovedClassifications",
-            json={"MaterialNumber": material_number, "Description": description, "HSN": hsn},
-        )
+        payload = {"MaterialNumber": material_number, "Description": description, "HSN": hsn}
+        resp = await client.post("/ApprovedClassifications", json=payload)
+        if resp.status_code not in (200, 201, 204):
+            resp = await client.patch(f"/ApprovedClassifications(MaterialNumber='{material_number}')", json=payload)
         resp.raise_for_status()
         
         # 2. Fetch all raw records for this material from Legacy queue
@@ -66,10 +66,16 @@ async def approve_classification(material_number: str, description: str, hsn: st
             legacy_row["HSN"] = hsn
             legacy_row["ApprovedAt"] = datetime.now(timezone.utc).isoformat()
             
-            post_resp = await client.post(
-                "/ZMM_MAT_APPROVED",
-                json=legacy_row,
-            )
+            serial = legacy_row["Legacy_Serial_number"]
+            post_resp = await client.post("/ZMM_MAT_APPROVED", json=legacy_row)
+            if post_resp.status_code not in (200, 201, 204):
+                serial_encoded = quote(serial, safe="")
+                post_resp = await client.patch(f"/ZMM_MAT_APPROVED(Legacy_Serial_number='{serial_encoded}')", json=legacy_row)
             post_resp.raise_for_status()
+            
+            # 4. Update the legacy table so HSN is no longer '9999'
+            serial_encoded = quote(serial, safe="")
+            patch_leg_resp = await client.patch(f"/ZMM_MAT_LEGACY(Legacy_Serial_number='{serial_encoded}')", json={"HSN": hsn})
+            patch_leg_resp.raise_for_status()
         
-        # Note: We are leaving the record in ZMM_MAT_LEGACY as requested.
+        # Note: We are leaving the record in ZMM_MAT_LEGACY as requested, but updated its HSN.
