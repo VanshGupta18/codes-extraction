@@ -100,6 +100,7 @@ async def health():
                 if aicore_client._embedding_error
                 else "ready" if aicore_client._embedding_model else "lazy"
             ),
+            "embedding_cache_entries": len(aicore_client._embedding_cache),
         }
     if _index_error:
         return {"status": "starting", "lastError": _index_error}

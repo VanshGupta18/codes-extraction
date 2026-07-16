@@ -26,6 +26,7 @@ _token_lock = asyncio.Lock()
 _embedding_model: TextEmbedding | None = None
 _embedding_error: str | None = None
 _embedding_lock = asyncio.Lock()
+_embedding_cache: dict[str, np.ndarray] = {}
 
 async def _get_token() -> str:
     global _token, _api_failed
@@ -56,7 +57,7 @@ async def get_embedding(text: str) -> np.ndarray:
 
 
 async def get_embeddings(texts: list[str]) -> list[np.ndarray]:
-    """Embed a batch locally with FastEmbed's ONNX runtime."""
+    """Embed each unique text once per process with FastEmbed's ONNX runtime."""
     global _embedding_model, _embedding_error
     if not texts:
         return []
@@ -78,11 +79,20 @@ async def get_embeddings(texts: list[str]) -> list[np.ndarray]:
     if _embedding_model is None:
         return [np.empty(0, dtype=np.float32) for _ in texts]
 
+    missing = list(dict.fromkeys(text for text in texts if text and text not in _embedding_cache))
     try:
-        vectors = await asyncio.to_thread(
-            lambda: list(_embedding_model.embed(texts, batch_size=64))
-        )
-        return [np.asarray(vector, dtype=np.float32) for vector in vectors]
+        if missing:
+            vectors = await asyncio.to_thread(
+                lambda: list(_embedding_model.embed(missing, batch_size=64))
+            )
+            _embedding_cache.update({
+                text: np.asarray(vector, dtype=np.float32)
+                for text, vector in zip(missing, vectors)
+            })
+        return [
+            _embedding_cache.get(text, np.empty(0, dtype=np.float32))
+            for text in texts
+        ]
     except Exception as exc:
         _embedding_error = str(exc)
         print(f"FastEmbed failed; using BM25 only: {exc}")
