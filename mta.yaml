@@ -64,10 +64,12 @@ modules:
     parameters:
       buildpack: python_buildpack
       memory: 512M
-      disk-quota: 1024M
+      disk-quota: 2048M
       health-check-type: http
       health-check-http-endpoint: /health
       health-check-invocation-timeout: 120
+      env:
+        PIP_NO_CACHE_DIR: "1"
 
   # ─── Python Worker (CF tasks: embedding index + batch) ───────────────────
   - name: hsn-lookup-worker
@@ -83,7 +85,9 @@ modules:
       no-route: true
       memory: 1536M
       disk-quota: 2048M
-      command: python -m jobs.run_batch
+      command: python worker_main.py
+      env:
+        PIP_NO_CACHE_DIR: "1"
 
   # ─── SAP AppRouter (Authentication + Routing Gateway) ────────────────────
   - name: hsn-approuter
