@@ -1,9 +1,9 @@
 #!/bin/bash
-echo "Starting CAP Server..."
-(cd cap && npm run start:hybrid) &
+echo "Starting CAP Server (HANA)..."
+(cd cap && npm start) &
 CAP_PID=$!
 
-echo "Waiting 15 seconds for CAP + HANA Cloud to initialize..."
+echo "Waiting 15 seconds for CAP + HANA to initialize..."
 sleep 15
 
 echo "Starting FastAPI Server..."

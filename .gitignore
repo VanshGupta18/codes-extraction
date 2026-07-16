@@ -2,6 +2,7 @@
 .env
 .env.*
 *credentials*
+default-env.json
 
 # Real/proprietary data — never commit (material master exports, govt HSN/SAC source, generated seed CSVs)
 #*.xlsx

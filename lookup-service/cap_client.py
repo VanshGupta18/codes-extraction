@@ -152,7 +152,7 @@ async def get_pending_material_numbers() -> list[str]:
     """Legacy queue flags pending work; MARA confirms the material exists in master data."""
     legacy_rows = await get_all("ZMM_MAT_LEGACY", {
         "$filter": "HSN eq '9999'",
-        "$select": "Material",
+        "$select": "Legacy_Serial_number,Material,HSN",
     })
     mara_numbers = {row["MaterialNumber"] for row in await get_mara()}
     pending = list(dict.fromkeys(
@@ -162,4 +162,5 @@ async def get_pending_material_numbers() -> list[str]:
     skipped = len({row["Material"] for row in legacy_rows if row.get("Material")}) - len(pending)
     if skipped:
         print(f"Batch: skipped {skipped} legacy row(s) with no MARA master record.")
+    print(f"Batch: found {len(pending)} materials to rank (HSN=9999, in MARA).")
     return pending

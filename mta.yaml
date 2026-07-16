@@ -22,6 +22,11 @@ modules:
       - name: hsn-hana-db
       - name: hsn-event-mesh
       - name: hsn-xsuaa
+      - name: hsn-lookup-api
+        properties:
+          LOOKUP_SERVICE_URL: ~{lookup-url}
+        parameters:
+          dependency-type: soft
     provides:
       - name: srv-api
         properties:

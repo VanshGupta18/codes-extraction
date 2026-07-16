@@ -11,13 +11,9 @@
     "@sap/xssec": "^4.13.3",
     "passport": "^0.7.0"
   },
-  "devDependencies": {
-    "@cap-js/sqlite": "^3",
-    "better-sqlite3": "^12"
-  },
   "scripts": {
     "start": "cds-serve",
-    "start:hybrid": "cds-serve --profile hybrid",
+    "watch": "cds watch",
     "build:ui": "npm --prefix app/hsn-review-workbench run build",
     "build": "cds build --production"
   },

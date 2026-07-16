@@ -12,6 +12,11 @@ service HSNService {
   entity ZMM_MAT_APPROVED        as projection on hsn.ZMM_MAT_APPROVED;
   entity CandidateSuggestions    as projection on hsn.CandidateSuggestions;
 
+  /** Forward to lookup-service (server-side — no browser /api proxy needed). */
+  action triggerBatch() returns String;
+  action rankMaterial(materialNumber : String) returns String;
+  action approveMaterial(materialNumber : String, chosenCode : String) returns String;
+
   event TariffApproved {
     MaterialNumber: String;
     Description: String;

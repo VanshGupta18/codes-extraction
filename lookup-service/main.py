@@ -170,7 +170,12 @@ async def run_batch_job():
         print(f"Batch aborted: index not ready ({_index_error})")
         return
 
-    material_numbers = await cap_client.get_pending_material_numbers()
+    try:
+        material_numbers = await cap_client.get_pending_material_numbers()
+    except Exception as exc:
+        print(f"Batch aborted: could not read pending queue from CAP ({exc})")
+        return
+
     print(f"Batch: ranking {len(material_numbers)} pending materials (BM25)...")
 
     ok, failed = 0, 0
