@@ -54,9 +54,9 @@ async def candidates(material_number: str):
     if not _index:
         raise HTTPException(503, "Index not ready")
         
-    description, material_group = await cap_client.get_material_details(material_number)
+    description, material_group = await cap_client.get_legacy_material_details(material_number)
     if description is None:
-        raise HTTPException(404, f"MAKT: no description for material '{material_number}'")
+        raise HTTPException(404, f"Legacy Data: no description for material '{material_number}'")
         
     query_emb = await aicore_client.get_embedding(description)
     top_cands = _index.top_matches(description, query_emb, material_group=material_group, n=3)
@@ -84,9 +84,9 @@ async def async_index_update(row: dict):
 
 @app.post("/approve")
 async def approve(req: ApproveRequest, background_tasks: BackgroundTasks):
-    description, _ = await cap_client.get_material_details(req.materialNumber)
+    description, _ = await cap_client.get_legacy_material_details(req.materialNumber)
     if description is None:
-        raise HTTPException(404, f"MAKT: no description for material '{req.materialNumber}'")
+        raise HTTPException(404, f"Legacy Data: no description for material '{req.materialNumber}'")
         
     # Write to CAP database
     await cap_client.approve_classification(req.materialNumber, description, req.chosenCode)

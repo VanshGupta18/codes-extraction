@@ -17,7 +17,7 @@ async def process_batch():
         print(f"Found {len(pending_items)} pending items.")
         
         for item in pending_items:
-            mat_num = item["MaterialNumber"]
+            mat_num = item["Material"]
             print(f"\nProcessing {mat_num}...")
             
             # Call lookup service to generate top 3 candidates

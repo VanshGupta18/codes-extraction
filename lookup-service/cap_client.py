@@ -22,14 +22,18 @@ async def get_govt_sac():
 async def get_mara():
     return await get_all("MARA")
 
-async def get_material_details(material_number: str) -> tuple[str | None, str | None]:
+async def get_legacy_materials():
+    return await get_all("ZMM_MAT_LEGACY")
+
+async def get_legacy_material_details(material_number: str) -> tuple[str | None, str | None]:
     async with httpx.AsyncClient(base_url=CAP_BASE_URL) as client:
-        # Get Description from MAKT
-        filter_expr = quote(f"MaterialNumber eq '{material_number}' and Language eq 'EN'", safe="")
-        resp = await client.get(f"/MAKT?$filter={filter_expr}&$top=1")
-        resp.raise_for_status()
-        rows = resp.json().get("value", [])
-        desc = rows[0]["Description"] if rows else None
+        # Get row directly from Legacy Table
+        resp = await client.get(f"/ZMM_MAT_LEGACY(Material='{material_number}')")
+        if resp.status_code != 200:
+            return None, None
+            
+        row = resp.json()
+        desc = row.get("Material_Description")
         
         # Get MaterialGroup from MARA
         resp_mara = await client.get(f"/MARA(MaterialNumber='{material_number}')")
@@ -37,19 +41,30 @@ async def get_material_details(material_number: str) -> tuple[str | None, str | 
         
         return desc, mat_group
 
-async def get_makt_description(material_number: str) -> str | None:
-    desc, _ = await get_material_details(material_number)
-    return desc
-
 async def approve_classification(material_number: str, description: str, hsn: str) -> None:
+    from datetime import datetime, timezone
+    
     async with httpx.AsyncClient(base_url=CAP_BASE_URL) as client:
+        # 1. Post to ApprovedClassifications (learning corpus)
         resp = await client.post(
             "/ApprovedClassifications",
             json={"MaterialNumber": material_number, "Description": description, "HSN": hsn},
         )
         resp.raise_for_status()
-        resp = await client.patch(
-            f"/ZMM_MAT_LEGACY(MaterialNumber='{material_number}')",
-            json={"HSN": hsn},
+        
+        # 2. Fetch full raw record from Legacy queue
+        resp = await client.get(f"/ZMM_MAT_LEGACY(Material='{material_number}')")
+        resp.raise_for_status()
+        legacy_row = resp.json()
+        
+        # 3. Post full raw record + HSN into Approved table
+        legacy_row["HSN"] = hsn
+        legacy_row["ApprovedAt"] = datetime.now(timezone.utc).isoformat()
+        
+        resp = await client.post(
+            "/ZMM_MAT_APPROVED",
+            json=legacy_row,
         )
         resp.raise_for_status()
+        
+        # Note: We are leaving the record in ZMM_MAT_LEGACY as requested.
