@@ -25,7 +25,10 @@ modules:
     parameters:
       buildpack: nodejs_buildpack
     build-parameters:
-      builder: npm-ci
+      builder: custom
+      commands:
+        - npm ci --prefix cap
+        - npm run build:ui --prefix cap
 
   - name: hsn-db-deployer
     type: hdb
