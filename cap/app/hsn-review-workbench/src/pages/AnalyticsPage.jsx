@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Title } from '@ui5/webcomponents-react';
+import { Title, Icon } from '@ui5/webcomponents-react';
+import '@ui5/webcomponents-icons/dist/product.js';
+import '@ui5/webcomponents-icons/dist/accept.js';
+import '@ui5/webcomponents-icons/dist/pending.js';
+import '@ui5/webcomponents-icons/dist/ai.js';
+import '@ui5/webcomponents-icons/dist/employee.js';
+import '@ui5/webcomponents-icons/dist/pie-chart.js';
 
 function KPICard({ title, value, subtitle, color, icon }) {
   return (
@@ -20,7 +26,9 @@ function KPICard({ title, value, subtitle, color, icon }) {
         position: 'absolute', top: 0, right: 0, width: '80px', height: '80px',
         background: color, opacity: 0.08, borderRadius: '0 12px 0 80px'
       }} />
-      <span style={{ fontSize: '28px' }}>{icon}</span>
+      <div style={{ fontSize: '28px', color }}>
+        <Icon name={icon} style={{ width: '28px', height: '28px', color: 'inherit' }} />
+      </div>
       <span style={{ fontSize: '36px', fontWeight: '700', color }}>{value}</span>
       <span style={{ fontWeight: '600', color: 'var(--hsn-on-surface)', fontSize: '14px' }}>{title}</span>
       {subtitle && <span style={{ fontSize: '12px', color: 'var(--hsn-on-surface-variant)' }}>{subtitle}</span>}
@@ -122,7 +130,7 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div style={{ padding: '2rem', background: 'var(--hsn-surface)', minHeight: '100%' }}>
+    <div style={{ padding: '2rem', paddingBottom: '5rem', background: 'var(--hsn-surface)', minHeight: '100%' }}>
       <div style={{ marginBottom: '2rem' }}>
         <Title level="H2" style={{ color: 'var(--hsn-on-surface)' }}>Analytics Dashboard</Title>
         <p style={{ color: 'var(--hsn-on-surface-variant)', marginTop: '0.25rem' }}>
@@ -133,25 +141,25 @@ export default function AnalyticsPage() {
       {/* KPI Cards */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
         <KPICard
-          icon="📦" title="Total Materials in Queue"
+          icon="product" title="Total Materials in Queue"
           value={stats.totalInQueue.toLocaleString()}
           subtitle="Unique material IDs in ZMM_MAT_LEGACY"
           color="var(--hsn-primary)"
         />
         <KPICard
-          icon="✅" title="Approved Classifications"
+          icon="accept" title="Approved Classifications"
           value={stats.totalApproved.toLocaleString()}
           subtitle="Unique materials fully classified in ZMM_MAT_APPROVED"
           color="#22c55e"
         />
         <KPICard
-          icon="⏳" title="Pending Review"
+          icon="pending" title="Pending Review"
           value={stats.pendingCount.toLocaleString()}
           subtitle="Awaiting AI suggestion or human approval"
           color="#f59e0b"
         />
         <KPICard
-          icon="🤖" title="AI Accuracy (Est.)"
+          icon="ai" title="AI Accuracy (Est.)"
           value={`${stats.accuracy}%`}
           subtitle="Estimates based on approved records"
           color="#8b5cf6"
@@ -193,26 +201,32 @@ export default function AnalyticsPage() {
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{
             flex: '1 1 160px', padding: '1rem', background: '#eff6ff',
-            borderRadius: '8px', textAlign: 'center', border: '1px solid #bfdbfe'
+            borderRadius: '8px', textAlign: 'center', border: '1px solid #bfdbfe',
+            display: 'flex', flexDirection: 'column', alignItems: 'center'
           }}>
+            <Icon name="ai" style={{ width: '24px', height: '24px', color: '#3b82f6', marginBottom: '0.5rem' }} />
             <div style={{ fontSize: '28px', fontWeight: '700', color: '#3b82f6' }}>
               {stats.aiClassified.toLocaleString()}
             </div>
-            <div style={{ fontSize: '13px', color: '#1d4ed8', marginTop: '4px' }}>🤖 AI Auto-Classified</div>
+            <div style={{ fontSize: '13px', color: '#1d4ed8', marginTop: '4px' }}>AI Auto-Classified</div>
           </div>
           <div style={{
             flex: '1 1 160px', padding: '1rem', background: '#fef9c3',
-            borderRadius: '8px', textAlign: 'center', border: '1px solid #fde68a'
+            borderRadius: '8px', textAlign: 'center', border: '1px solid #fde68a',
+            display: 'flex', flexDirection: 'column', alignItems: 'center'
           }}>
+            <Icon name="employee" style={{ width: '24px', height: '24px', color: '#d97706', marginBottom: '0.5rem' }} />
             <div style={{ fontSize: '28px', fontWeight: '700', color: '#d97706' }}>
               {stats.humanOverride.toLocaleString()}
             </div>
-            <div style={{ fontSize: '13px', color: '#92400e', marginTop: '4px' }}>🙋 Human Overrides</div>
+            <div style={{ fontSize: '13px', color: '#92400e', marginTop: '4px' }}>Human Overrides</div>
           </div>
           <div style={{
             flex: '1 1 160px', padding: '1rem', background: '#f0fdf4',
-            borderRadius: '8px', textAlign: 'center', border: '1px solid #bbf7d0'
+            borderRadius: '8px', textAlign: 'center', border: '1px solid #bbf7d0',
+            display: 'flex', flexDirection: 'column', alignItems: 'center'
           }}>
+            <Icon name="pie-chart" style={{ width: '24px', height: '24px', color: '#16a34a', marginBottom: '0.5rem' }} />
             <div style={{ fontSize: '28px', fontWeight: '700', color: '#16a34a' }}>
               {stats.overrideRate}%
             </div>
