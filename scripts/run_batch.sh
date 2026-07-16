@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "Starting CAP Server..."
-(cd cap && npx cds serve --profile hybrid) &
+(cd cap && npm run start:hybrid) &
 CAP_PID=$!
 
 echo "Waiting 5 seconds for CAP to initialize..."

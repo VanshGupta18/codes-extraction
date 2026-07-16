@@ -14,7 +14,8 @@
     "better-sqlite3": "^12"
   },
   "scripts": {
-    "start": "cds-serve"
+    "start": "cds-serve",
+    "start:hybrid": "cds-serve --profile hybrid"
   },
   "cds": {
     "requires": {
