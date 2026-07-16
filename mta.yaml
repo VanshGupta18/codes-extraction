@@ -68,8 +68,6 @@ modules:
       health-check-type: http
       health-check-http-endpoint: /health
       health-check-invocation-timeout: 120
-      env:
-        PIP_NO_CACHE_DIR: "1"
 
   # ─── Python Worker (CF tasks: embedding index + batch) ───────────────────
   - name: hsn-lookup-worker
@@ -86,8 +84,8 @@ modules:
       memory: 1536M
       disk-quota: 2048M
       command: python worker_main.py
-      env:
-        PIP_NO_CACHE_DIR: "1"
+      health-check-type: process
+      health-check-invocation-timeout: 120
 
   # ─── SAP AppRouter (Authentication + Routing Gateway) ────────────────────
   - name: hsn-approuter
