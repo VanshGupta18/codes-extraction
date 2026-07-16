@@ -64,44 +64,54 @@ async def _get_token() -> str:
         return ""
 
 async def get_embedding(text: str) -> np.ndarray:
-    global _api_failed
-    if not text:
-        return np.zeros(1536)
-        
-    if text in _embeddings_cache:
-        return np.array(_embeddings_cache[text])
+    """Return one cached/remote embedding, or zeros for BM25-only fallback."""
+    return (await get_embeddings([text]))[0]
 
-    token = await _get_token()
-    if token and not _api_failed and EMBEDDING_MODEL_BASE_URL:
+
+async def get_embeddings(texts: list[str]) -> list[np.ndarray]:
+    """Embed uncached texts in one API request and preserve input ordering."""
+    global _api_failed
+
+    results: list[np.ndarray | None] = [None] * len(texts)
+    missing: list[tuple[int, str]] = []
+    for index, text in enumerate(texts):
+        if not text:
+            results[index] = np.zeros(1536)
+        elif text in _embeddings_cache:
+            results[index] = np.array(_embeddings_cache[text], dtype=np.float32)
+        else:
+            missing.append((index, text))
+
+    token = await _get_token() if missing else ""
+    if missing and token and not _api_failed and EMBEDDING_MODEL_BASE_URL:
         headers = {
             "Authorization": f"Bearer {token}",
             "AI-Resource-Group": "default",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         url = f"{EMBEDDING_MODEL_BASE_URL}/embeddings?api-version=2023-05-15"
-        payload = {"input": text, "model": "text-embedding-ada-002"}
-        
+        payload = {
+            "input": [text for _, text in missing],
+            "model": "text-embedding-ada-002",
+        }
         try:
             resp = await _client.post(url, headers=headers, json=payload)
             if resp.status_code == 200:
-                vec = np.array(resp.json()["data"][0]["embedding"])
-                _embeddings_cache[text] = vec.tolist()
+                data = sorted(resp.json()["data"], key=lambda item: item.get("index", 0))
+                for (result_index, text), item in zip(missing, data):
+                    vector = np.array(item["embedding"], dtype=np.float32)
+                    results[result_index] = vector
+                    _embeddings_cache[text] = vector.tolist()
                 save_cache()
-                return vec
-            elif resp.status_code == 404:
+            else:
                 _api_failed = True
         except Exception:
             _api_failed = True
 
-    # Return zeros — caller treats this as BM25-only degradation
-    return np.zeros(1536)
-
-async def get_embeddings(texts: list[str]) -> list[np.ndarray]:
-    """Return embeddings for a list of texts, hitting the cache for each one."""
-    results = []
-    for text in texts:
-        results.append(await get_embedding(text))
-    return results
+    return [
+        result if result is not None else np.zeros(1536)
+        for result in results
+    ]
 
 
 async def adjudicate(description: str, top_candidates: list[dict]) -> str | None:

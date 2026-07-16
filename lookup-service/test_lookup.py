@@ -67,11 +67,12 @@ def test_rank1_confidence_is_1():
 def test_relative_confidence_ordering():
     idx = _make_index()
     results = idx.rank("BUMPER BRACKET ASSEMBLY")
-    assert len(results) >= 2, f"expected multiple candidates: {results}"
+    assert results, f"expected at least one candidate: {results}"
     for i in range(len(results) - 1):
         assert results[i]["confidence"] >= results[i + 1]["confidence"], (
             f"confidence not descending: {results}"
         )
+    assert all(result["confidence"] > 0 for result in results)
     assert results[0]["confidence"] == 1.0
 
 
@@ -159,6 +160,26 @@ def test_hybrid_bm25_only_when_zero_embedding():
     )
 
 
+def test_hybrid_cosine_changes_ranking():
+    """A semantic candidate can outrank the lexical leader after lazy embedding."""
+    idx = _make_index()
+    shortlist = idx.shortlist_indices("CABLE BATTERY")
+    query = np.zeros(1536)
+    query[0] = 1.0
+    vectors = []
+    semantic_code = "87088000"
+    for index in shortlist:
+        vector = np.zeros(1536)
+        vector[0 if idx.rows[index]["Code"] == semantic_code else 1] = 1.0
+        vectors.append(vector)
+    idx.set_embeddings(shortlist, vectors)
+
+    results = idx.rank("CABLE BATTERY", query_embedding=query)
+    assert results[0]["Code"] == semantic_code, (
+        f"cosine signal should change rank-1: {results}"
+    )
+
+
 # Run unit tests
 _tests = [
     test_tokenize_strips_punctuation,
@@ -174,6 +195,7 @@ _tests = [
     test_self_learning_hot_reload,
     test_is_valid_code,
     test_hybrid_bm25_only_when_zero_embedding,
+    test_hybrid_cosine_changes_ranking,
 ]
 
 print("Running unit tests...")

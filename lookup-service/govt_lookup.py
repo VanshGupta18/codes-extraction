@@ -63,28 +63,14 @@ class Index:
         if not self.rows or self.bm25 is None:
             return []
 
-        tokens = tokenize(description)
-        bm25_scores = self.bm25.get_scores(tokens).astype(np.float32)
+        bm25_scores = self._bm25_scores(description, tariff)
+        shortlist_idx = self.shortlist_indices(
+            description, tariff=tariff, k=_BM25_SHORTLIST
+        )
+        if len(shortlist_idx) == 0:
+            return []
 
-        # rank_bm25 BM25Okapi can produce negative IDF when a term appears in
-        # all documents — clamp to 0 so they don't corrupt normalization.
-        np.clip(bm25_scores, 0.0, None, out=bm25_scores)
-
-        # Zero out candidates from the wrong tariff type
-        for i, row in enumerate(self.rows):
-            source = row.get("Source", "GOVT_HSN")
-            if source == "APPROVED":
-                continue
-            if tariff == "SAC" and source != "GOVT_SAC":
-                bm25_scores[i] = 0.0
-            elif tariff == "HSN" and source == "GOVT_SAC":
-                bm25_scores[i] = 0.0
-
-        # Take top-K shortlist by BM25
-        k = min(_BM25_SHORTLIST, len(self.rows))
-        shortlist_idx = np.argsort(bm25_scores)[::-1][:k]
-
-        shortlist_bm25_max = float(bm25_scores[shortlist_idx[0]]) if k > 0 else 0.0
+        shortlist_bm25_max = float(bm25_scores[shortlist_idx[0]])
 
         # Build fused scores
         fused = np.zeros(len(self.rows), dtype=np.float32)
@@ -122,15 +108,19 @@ class Index:
                 fused[idx] *= 1.3
 
         # Top-n by fused score
-        top_n_idx = np.argsort(fused)[::-1][:n]
-        top_score = float(fused[top_n_idx[0]])
+        ranked_idx = [
+            int(index)
+            for index in np.argsort(fused)[::-1]
+            if fused[index] > 0 and self._allowed_for_tariff(self.rows[index], tariff)
+        ][:n]
 
         # Zero gate
-        if top_score == 0.0:
+        if not ranked_idx:
             return []
+        top_score = float(fused[ranked_idx[0]])
 
         results = []
-        for idx in top_n_idx:
+        for idx in ranked_idx:
             row = self.rows[idx]
             confidence = round(float(fused[idx]) / top_score, 4)
             results.append({
@@ -140,6 +130,31 @@ class Index:
                 "Source": row.get("Source", "GOVT_HSN"),
             })
         return results
+
+    def shortlist_indices(
+        self, description: str, tariff: str = "HSN", k: int = _BM25_SHORTLIST
+    ) -> list[int]:
+        """Return valid top-K BM25 row indexes for lazy embedding."""
+        if not self.rows or self.bm25 is None:
+            return []
+        scores = self._bm25_scores(description, tariff)
+        valid = [
+            int(index)
+            for index in np.argsort(scores)[::-1]
+            if self._allowed_for_tariff(self.rows[index], tariff)
+        ]
+        return valid[: min(k, len(valid))]
+
+    def set_embeddings(self, indices: list[int], embeddings: list) -> None:
+        """Cache remotely generated vectors in the in-memory matrix."""
+        changed = False
+        for index, embedding in zip(indices, embeddings):
+            vector = np.asarray(embedding, dtype=np.float32)
+            if vector.shape == (1536,) and np.linalg.norm(vector) > 0:
+                self._embeddings_matrix[index] = vector
+                changed = True
+        if changed:
+            self._normalize_embeddings()
 
     def is_valid_code(self, code: str, material_type: str = "") -> bool:
         """Return True if code exists in the appropriate govt master."""
@@ -159,15 +174,15 @@ class Index:
         self._embeddings_matrix = np.vstack([self._embeddings_matrix, emb[np.newaxis]])
         self._embeddings_norm = np.vstack([self._embeddings_norm, emb_norm[np.newaxis]])
 
-        # Keep approved code set current
-        if row.get("Source") == "APPROVED" and row.get("Code"):
-            self._hsn_codes.add(row["Code"])
-
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
     def _normalize_embeddings(self):
+        if not self.rows:
+            self._embeddings_matrix = np.empty((0, 1536), dtype=np.float32)
+            self._embeddings_norm = np.empty((0, 1536), dtype=np.float32)
+            return
         norms = np.linalg.norm(self._embeddings_matrix, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
         self._embeddings_norm = self._embeddings_matrix / norms
@@ -182,3 +197,24 @@ class Index:
                 self._hsn_codes.add(code)
             elif source == "GOVT_SAC":
                 self._sac_codes.add(code)
+
+    def _allowed_for_tariff(self, row: dict, tariff: str) -> bool:
+        source = row.get("Source", "")
+        code = row.get("Code", "")
+        if source == "GOVT_SAC":
+            return tariff == "SAC"
+        if source == "GOVT_HSN":
+            return tariff == "HSN"
+        if source == "APPROVED":
+            valid_codes = self._sac_codes if tariff == "SAC" else self._hsn_codes
+            return code in valid_codes
+        return False
+
+    def _bm25_scores(self, description: str, tariff: str) -> np.ndarray:
+        scores = self.bm25.get_scores(tokenize(description)).astype(np.float32)
+        # BM25Okapi can produce negative IDF for ubiquitous terms.
+        np.clip(scores, 0.0, None, out=scores)
+        for index, row in enumerate(self.rows):
+            if not self._allowed_for_tariff(row, tariff):
+                scores[index] = 0.0
+        return scores

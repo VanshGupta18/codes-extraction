@@ -1,5 +1,6 @@
 import os
-from urllib.parse import quote
+import json
+from urllib.parse import quote, urlencode, urljoin
 import httpx
 
 CAP_BASE_URL = os.environ.get("CAP_BASE_URL", "http://localhost:4004/odata/v4/hsn")
@@ -8,12 +9,33 @@ async def get_all(entity: str, params: dict | None = None, *, top: int | None = 
     query = dict(params or {})
     if top is not None and "$top" not in query:
         query["$top"] = top
-    async with httpx.AsyncClient(base_url=CAP_BASE_URL, timeout=120) as client:
-        resp = await client.get(f"/{entity}", params=query)
-    if not resp.is_success:
-        print(f"CAP GET /{entity} failed ({resp.status_code}): {resp.text[:300]}")
-    resp.raise_for_status()
-    return resp.json().get("value", [])
+
+    # httpx encodes spaces as '+', which CAP's OData parser rejects in some
+    # filtered queries. Use RFC 3986 percent encoding and follow nextLink so
+    # CAP's default 1,000-row page limit does not truncate government masters.
+    encoded = urlencode(query, quote_via=quote, safe="$(),'=")
+    next_url = f"{CAP_BASE_URL.rstrip('/')}/{entity}"
+    if encoded:
+        next_url = f"{next_url}?{encoded}"
+
+    rows: list[dict] = []
+    async with httpx.AsyncClient(timeout=120) as client:
+        while next_url:
+            resp = await client.get(next_url)
+            if not resp.is_success:
+                print(f"CAP GET /{entity} failed ({resp.status_code}): {resp.text[:300]}")
+            resp.raise_for_status()
+            payload = resp.json()
+            rows.extend(payload.get("value", []))
+            if top is not None and len(rows) >= top:
+                return rows[:top]
+            next_link = payload.get("@odata.nextLink")
+            next_url = (
+                urljoin(f"{CAP_BASE_URL.rstrip('/')}/", next_link)
+                if next_link
+                else None
+            )
+    return rows
 
 async def get_approved_classifications():
     return await get_all("ApprovedClassifications")
@@ -127,47 +149,27 @@ async def approve_classification(material_number: str, description: str, hsn: st
 async def get_candidate_suggestions(material_number: str | None = None) -> list[dict]:
     params = {"$orderby": "Rank asc"}
     if material_number:
-        enc = quote(material_number, safe="")
-        params["$filter"] = f"MaterialNumber eq '{enc}'"
-    async with httpx.AsyncClient(base_url=CAP_BASE_URL) as client:
-        resp = await client.get("/CandidateSuggestions", params=params)
-    resp.raise_for_status()
-    return resp.json().get("value", [])
-
-async def clear_candidate_suggestions(material_number: str) -> None:
-    """Delete all precomputed suggestions for one material before a fresh batch write."""
-    enc = quote(material_number, safe="")
-    async with httpx.AsyncClient(base_url=CAP_BASE_URL, timeout=60) as client:
-        resp = await client.get(
-            f"/CandidateSuggestions",
-            params={"$filter": f"MaterialNumber eq '{material_number}'", "$select": "MaterialNumber,Rank"},
-        )
-        if not resp.is_success:
-            return
-        for row in resp.json().get("value", []):
-            await client.delete(
-                f"/CandidateSuggestions(MaterialNumber='{enc}',Rank={row['Rank']})"
-            )
+        params["$filter"] = f"MaterialNumber eq '{material_number}'"
+    return await get_all("CandidateSuggestions", params, top=None)
 
 
 async def save_candidate_suggestions(material_number: str, candidates: list[dict]) -> None:
-    """Persist ranked candidates. Candidates must have 'Code' and 'confidence' keys (0-1 float)."""
-    enc = quote(material_number, safe="")
+    """Atomically replace all suggestions for one material through CAP."""
+    entries = [
+        {
+            "Rank": rank,
+            "CandidateCode": candidate["Code"],
+            "Score": float(candidate.get("confidence", candidate.get("score", 0))),
+        }
+        for rank, candidate in enumerate(candidates, start=1)
+    ]
+    payload = {
+        "materialNumber": material_number,
+        "candidatesJson": json.dumps(entries),
+    }
     async with httpx.AsyncClient(base_url=CAP_BASE_URL) as client:
-        for rank, cand in enumerate(candidates, start=1):
-            payload = {
-                "MaterialNumber": material_number,
-                "Rank": rank,
-                "CandidateCode": cand["Code"],
-                "Score": float(cand.get("confidence", cand.get("score", 0))),
-            }
-            resp = await client.post("/CandidateSuggestions", json=payload)
-            if resp.status_code not in (200, 201, 204):
-                resp = await client.patch(
-                    f"/CandidateSuggestions(MaterialNumber='{enc}',Rank={rank})",
-                    json=payload,
-                )
-            resp.raise_for_status()
+        resp = await client.post("/replaceCandidateSuggestions", json=payload)
+    resp.raise_for_status()
 
 async def get_pending_material_numbers() -> list[str]:
     """Legacy queue flags pending work; MARA confirms the material exists in master data."""

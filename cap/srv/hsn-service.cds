@@ -16,6 +16,11 @@ service HSNService {
   action triggerBatch() returns String;
   action rankMaterial(materialNumber : String) returns String;
   action approveMaterial(materialNumber : String, chosenCode : String) returns String;
+  /** Atomically delete stale ranks and insert the latest top candidates. */
+  action replaceCandidateSuggestions(
+    materialNumber : String,
+    candidatesJson : LargeString
+  ) returns Integer;
 
   event TariffApproved {
     MaterialNumber: String;

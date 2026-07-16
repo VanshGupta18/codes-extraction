@@ -122,8 +122,13 @@ async def _rank_material(material_number: str) -> dict:
     material_type = details.get("MaterialType") or ""
     tariff = _tariff_for(material_type)
 
-    # Always attempt embedding; zeros returned when AI Core is unavailable → BM25-only path
-    query_embedding = await aicore_client.get_embedding(description)
+    # BM25 first narrows ~15k rows to 50. Embed only the query and shortlist,
+    # in one cached request, so startup remains cheap and BTP-safe.
+    shortlist = _index.shortlist_indices(description, tariff=tariff)
+    texts = [description] + [_index.rows[index]["Description"] for index in shortlist]
+    embeddings = await aicore_client.get_embeddings(texts)
+    query_embedding = embeddings[0]
+    _index.set_embeddings(shortlist, embeddings[1:])
 
     candidates = _index.rank(
         description,
@@ -144,7 +149,6 @@ async def _rank_material(material_number: str) -> dict:
 
 async def _rank_and_save(material_number: str) -> dict:
     result = await _rank_material(material_number)
-    await cap_client.clear_candidate_suggestions(material_number)
     await cap_client.save_candidate_suggestions(material_number, result["candidates"])
     return result
 

@@ -19,6 +19,32 @@ async function callLookup(path, options = {}) {
 }
 
 module.exports = cds.service.impl(function () {
+  const { CandidateSuggestions } = cds.entities('hsn');
+
+  this.on('replaceCandidateSuggestions', async (req) => {
+    const { materialNumber, candidatesJson } = req.data;
+    let candidates;
+    try {
+      candidates = JSON.parse(candidatesJson || '[]');
+    } catch {
+      return req.reject(400, 'candidatesJson must be valid JSON');
+    }
+
+    const entries = candidates.map((candidate) => ({
+      MaterialNumber: materialNumber,
+      Rank: candidate.Rank,
+      CandidateCode: candidate.CandidateCode,
+      Score: candidate.Score,
+    }));
+
+    const tx = cds.tx(req);
+    await tx.delete(CandidateSuggestions).where({ MaterialNumber: materialNumber });
+    if (entries.length) {
+      await tx.insert(entries).into(CandidateSuggestions);
+    }
+    return entries.length;
+  });
+
   this.on('triggerBatch', async () => {
     const result = await callLookup('/trigger_batch', { method: 'POST' });
     return result?.message ?? 'Batch started';
