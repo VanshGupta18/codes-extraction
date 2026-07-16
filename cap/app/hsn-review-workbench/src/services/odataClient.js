@@ -1,11 +1,29 @@
 /**
  * OData Client — HSN Review Workbench
  *
- * Reads/writes via CAP OData (/odata/v4/hsn). Batch, rank, and approve go through
- * CAP actions (server-side forward to lookup-service) — no /api browser proxy needed.
+ * Reads via CAP OData (/odata/v4/hsn).
+ * Batch / rank / approve via /api/* → lookup-service (Vite proxy, cap/server.js, or approuter).
  */
 
 const ODATA = '/odata/v4/hsn';
+const LOOKUP_API = import.meta.env.VITE_LOOKUP_API_URL || '/api';
+
+async function lookupPost(path, body) {
+  const res = await fetch(`${LOOKUP_API}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(
+      `Lookup POST ${path} failed (${res.status}): ${detail || res.statusText}. ` +
+      'Ensure lookup-service is on port 8000 and CAP was restarted (cap/server.js proxy).',
+    );
+  }
+  return res.json();
+}
 
 async function fetchCsrfToken() {
   const res = await fetch(`${ODATA}/`, {
@@ -13,27 +31,6 @@ async function fetchCsrfToken() {
     headers: { 'X-CSRF-Token': 'Fetch' },
   });
   return res.headers.get('X-CSRF-Token') || '';
-}
-
-async function odataPost(action, payload) {
-  const csrf = await fetchCsrfToken();
-  const headers = { 'Content-Type': 'application/json' };
-  if (csrf) headers['X-CSRF-Token'] = csrf;
-
-  const res = await fetch(`${ODATA}/${action}`, {
-    method: 'POST',
-    credentials: 'include',
-    headers,
-    body: payload !== undefined ? JSON.stringify(payload) : undefined,
-  });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`OData ${action} failed (${res.status}): ${detail || res.statusText}`);
-  }
-
-  const json = await res.json();
-  return json.value ?? json;
 }
 
 // ── Read ───────────────────────────────────────────────────────────────────
@@ -93,7 +90,7 @@ export async function fetchMaterialQueue() {
 // ── Write ──────────────────────────────────────────────────────────────────
 
 export async function approveHsn(materialId, hsn) {
-  await odataPost('approveMaterial', { materialNumber: materialId, chosenCode: hsn });
+  await lookupPost('/approve', { materialNumber: materialId, chosenCode: hsn });
   return { success: true };
 }
 
@@ -162,11 +159,10 @@ export async function fetchMaterialDetails(materialId) {
 }
 
 export async function triggerBatchPipeline() {
-  const message = await odataPost('triggerBatch', {});
-  return { message };
+  return lookupPost('/trigger_batch');
 }
 
 export async function rankMaterial(materialId) {
-  await odataPost('rankMaterial', { materialNumber: materialId });
+  await lookupPost(`/rank/${encodeURIComponent(materialId)}`);
   return { success: true };
 }
