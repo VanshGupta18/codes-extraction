@@ -52,6 +52,12 @@ modules:
   - name: hsn-lookup-service
     type: python
     path: lookup-service
+    build-parameters:
+      ignore:
+        - .venv/
+        - __pycache__/
+        - "*.pyc"
+        - .env
     requires:
       - name: hsn-xsuaa
       - name: srv-api
@@ -73,6 +79,12 @@ modules:
   - name: hsn-lookup-worker
     type: python
     path: lookup-service
+    build-parameters:
+      ignore:
+        - .venv/
+        - __pycache__/
+        - "*.pyc"
+        - .env
     requires:
       - name: hsn-xsuaa
       - name: srv-api

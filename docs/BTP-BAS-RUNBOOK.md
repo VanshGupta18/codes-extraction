@@ -202,6 +202,7 @@ After **approve**, one APPROVED row is upserted to HANA automatically — full i
 | Vector SQL error | Vector engine off | Enable on HANA Cloud instance |
 | BuildpackCompileFailed (lookup) | Wrong `runtime.txt` or pip OOM/disk | Use `python-3.11.x`; 2G disk; `cf logs hsn-lookup-service --recent` during staging |
 | Worker crash on start | HTTP health check on no-route idle app | Set `health-check-type: process`; command `python worker_main.py` |
+| Task FAILED: No space left on device | `.venv` bundled in MTAR (~221MB) | Delete `lookup-service/.venv`; `mbt build` with ignore; redeploy |
 
 ---
 
