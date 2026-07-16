@@ -114,7 +114,7 @@ resources:
     type: org.cloudfoundry.managed-service
     parameters:
       service: enterprise-messaging
-      service-plan: standard
+      service-plan: default
       path: ./event-mesh.json
 
   # ─── SAP XSUAA (Authentication) ─────────────────────────────────────────
