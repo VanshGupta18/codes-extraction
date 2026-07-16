@@ -63,6 +63,9 @@ modules:
       buildpack: python_buildpack
       memory: 1024M
       disk-quota: 1024M
+      health-check-type: http
+      health-check-http-endpoint: /health
+      health-check-invocation-timeout: 120
   # ─── SAP AppRouter (Authentication + Routing Gateway) ────────────────────
   - name: hsn-approuter
     type: approuter.nodejs

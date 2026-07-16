@@ -18,7 +18,9 @@ _api_failed = False
 _client = httpx.AsyncClient()
 _token_lock = asyncio.Lock()
 
-CACHE_FILE = os.path.join(os.path.dirname(__file__), "embeddings_cache.json")
+_cache_dir = os.environ.get("EMBEDDINGS_CACHE_DIR") or os.path.join(os.environ.get("TMPDIR", "/tmp"), "hsn-lookup")
+os.makedirs(_cache_dir, exist_ok=True)
+CACHE_FILE = os.path.join(_cache_dir, "embeddings_cache.json")
 
 def load_cache():
     if os.path.exists(CACHE_FILE):
@@ -30,8 +32,11 @@ def load_cache():
     return {}
 
 def save_cache():
-    with open(CACHE_FILE, "w") as f:
-        json.dump(_embeddings_cache, f)
+    try:
+        with open(CACHE_FILE, "w") as f:
+            json.dump(_embeddings_cache, f)
+    except OSError as exc:
+        print(f"Warning: could not persist embedding cache: {exc}")
 
 _embeddings_cache = load_cache()
 

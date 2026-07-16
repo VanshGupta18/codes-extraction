@@ -1,0 +1,6 @@
+test_lookup.py
+.env
+.venv/
+__pycache__/
+*.pyc
+embeddings_cache.json
