@@ -738,6 +738,11 @@ body {
   background: #14532d;
 }
 
+.hsn-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* ── Detail Drawer / Dialog ────────────────────────────────── */
 .hsn-drawer-overlay {
   position: fixed;
@@ -1037,9 +1042,9 @@ body {
 
 /* ── Ingestion form ────────────────────────────────────────── */
 .hsn-ingestion {
-  padding: var(--hsn-container-padding);
   max-width: 960px;
   margin: 0 auto;
+  width: 100%;
 }
 
 .hsn-ingestion__header {
@@ -1051,6 +1056,14 @@ body {
   color: var(--hsn-on-surface-variant);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.hsn-ingestion__header code {
+  font-family: var(--hsn-font-code);
+  font-size: 12px;
+  background: var(--hsn-surface-container);
+  padding: 2px 6px;
+  border-radius: var(--hsn-radius);
 }
 
 .hsn-ingestion__system {
@@ -1067,18 +1080,26 @@ body {
 .hsn-ingestion__link {
   color: inherit;
   font-weight: 600;
+  text-decoration: underline;
 }
 
 .hsn-ingestion__form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+.hsn-ingestion__section,
+.hsn-ingestion__panel {
+  background: var(--hsn-surface-container-lowest);
+  border: 1px solid var(--hsn-outline-variant);
+  border-radius: var(--hsn-radius-lg);
+  box-shadow: var(--hsn-shadow-card);
+  overflow: hidden;
 }
 
 .hsn-ingestion__section {
-  background: var(--hsn-surface-container-lowest);
-  border: 1px solid var(--hsn-outline-variant);
-  border-radius: 8px;
   padding: 1.25rem;
 }
 
@@ -1098,6 +1119,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+}
+
+.hsn-ingestion__input {
+  width: 100%;
 }
 
 .hsn-ingestion-field--wide {
@@ -1115,7 +1141,7 @@ body {
 }
 
 .hsn-ingestion__panel-body {
-  padding: 1rem;
+  padding: 0 1.25rem 1.25rem;
 }
 
 .hsn-ingestion__divider {
@@ -1127,11 +1153,12 @@ body {
 .hsn-ingestion__footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 1rem 0 0;
-  position: sticky;
-  bottom: 0;
-  background: var(--hsn-surface);
-  border-top: 1px solid var(--hsn-outline-variant);
-  margin-top: 0.5rem;
+  align-items: center;
+  gap: 12px;
+  padding: 1rem 1.25rem;
+  margin-top: 8px;
+  background: var(--hsn-surface-container-lowest);
+  border: 1px solid var(--hsn-outline-variant);
+  border-radius: var(--hsn-radius-lg);
+  box-shadow: var(--hsn-shadow-card);
 }

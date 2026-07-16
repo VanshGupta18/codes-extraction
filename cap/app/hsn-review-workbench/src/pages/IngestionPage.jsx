@@ -1,7 +1,6 @@
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Button,
   Input,
   Label,
   MessageStrip,
@@ -134,7 +133,7 @@ export default function IngestionPage() {
       <Input
         value={formData[key]}
         onInput={(ev) => handleChange(key, ev.target.value)}
-        style={{ width: '100%' }}
+        className="hsn-ingestion__input"
       />
       {errors[key] && <span className="hsn-ingestion-error">{errors[key]}</span>}
     </div>
@@ -145,7 +144,7 @@ export default function IngestionPage() {
       <Label required={required}>{label}</Label>
       <Select
         onChange={(ev) => handleChange(key, ev.detail.selectedOption?.value ?? '')}
-        style={{ width: '100%' }}
+        className="hsn-ingestion__input"
       >
         {options.map((opt) => (
           <Option key={opt || 'empty'} value={opt} selected={formData[key] === opt}>
@@ -210,19 +209,19 @@ export default function IngestionPage() {
           </div>
         </section>
 
-        <Panel headerText="More details (optional)" collapsed>
+        <Panel headerText="More details (optional)" collapsed className="hsn-ingestion__panel">
           <div className="hsn-ingestion__grid hsn-ingestion__panel-body">
             {MORE_FIELDS.map(([key, label]) => renderTextField(key, label))}
           </div>
         </Panel>
 
-        <Panel headerText="Units (optional)" collapsed>
+        <Panel headerText="Units (optional)" collapsed className="hsn-ingestion__panel">
           <div className="hsn-ingestion__grid hsn-ingestion__panel-body">
             {UNIT_FIELDS.map(([key, label]) => renderTextField(key, label))}
           </div>
         </Panel>
 
-        <Panel headerText="Advanced unit conversions (rare)" collapsed>
+        <Panel headerText="Advanced unit conversions (rare)" collapsed className="hsn-ingestion__panel">
           <div className="hsn-ingestion__panel-body">
             {ADVANCED_GROUPS.map((group, i) => (
               <Fragment key={i}>
@@ -236,9 +235,9 @@ export default function IngestionPage() {
         </Panel>
 
         <footer className="hsn-ingestion__footer">
-          <Button
-            design="Transparent"
-            type="Button"
+          <button
+            type="button"
+            className="hsn-btn hsn-btn--ghost"
             onClick={() => {
               setFormData(INITIAL_STATE);
               setErrors({});
@@ -246,10 +245,10 @@ export default function IngestionPage() {
             }}
           >
             Clear
-          </Button>
-          <Button design="Emphasized" type="Submit" disabled={loading}>
+          </button>
+          <button type="submit" className="hsn-btn hsn-btn--primary" disabled={loading}>
             {loading ? 'Saving…' : 'Add to classification queue'}
-          </Button>
+          </button>
         </footer>
       </form>
     </div>
