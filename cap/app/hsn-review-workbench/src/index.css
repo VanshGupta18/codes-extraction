@@ -133,7 +133,28 @@ body {
   gap: var(--hsn-gap-element);
   flex-shrink: 0;
   box-shadow: 0 1px 4px rgba(0,0,0,0.18);
-  z-index: 10;
+  z-index: 1000;
+}
+
+.hsn-nav-link {
+  color: var(--hsn-on-surface);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.hsn-nav-link:hover {
+  background-color: var(--hsn-surface-container-highest);
+}
+
+.hsn-nav-link.active {
+  background-color: var(--hsn-primary-container);
+  color: var(--hsn-on-primary-container);
 }
 
 .hsn-shell-header__logo {

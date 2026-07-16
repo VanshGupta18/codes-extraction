@@ -109,9 +109,37 @@ export async function bulkApprove(materialIds) {
 }
 
 /**
+ * Add a legacy material entry manually.
+ */
+export async function addLegacyMaterial(materialData) {
+  const response = await fetch('/odata/v4/hsn/ZMM_MAT_LEGACY', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(materialData),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OData error: ${errorText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Fetch all master data.
+ */
+export async function fetchAllMasterData() {
+  const response = await fetch('/odata/v4/hsn/ZMM_MAT_LEGACY?$top=5000');
+  if (!response.ok) {
+    throw new Error('Failed to fetch master data');
+  }
+  const data = await response.json();
+  return data.value;
+}
+
+/**
  * Triggers the AI batch pipeline job in the FastAPI backend.
  */
-export async function triggerBatchJob() {
+export async function triggerBatchPipeline() {
   const res = await fetch('/api/trigger_batch', {
     method: 'POST',
   });

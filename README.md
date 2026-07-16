@@ -92,3 +92,29 @@ The core pipeline is built and verified end-to-end against real material master 
 - **Scheduled BTP job** — loop over `PENDING` `ZMM_MAT_LEGACY` records calling `GET /candidates`.
 - **Fiori/React review UI** — consumes `GET /candidates` + `POST /approve` directly.
 - **Auth/security (xsuaa, roles) and audit logging.**
+
+
+Viewed main.py:4-33
+
+Now that Phase 1 (the functional end-to-end prototype) is complete and working beautifully on your local environment, **Phase 2** is all about transforming this prototype into a production-ready enterprise application on SAP BTP. 
+
+Here is what Phase 2 would typically entail for this architecture:
+
+### 1. SAP HANA Native Vector Search
+Right now, the FastAPI Python backend holds the search index (FAISS/BM25) in system memory. In Phase 2, we would move this workload directly into the database by utilizing the **SAP HANA Cloud Native Vector Engine**. We would store the embeddings in the `MaterialEmbeddings` table as `REAL_VECTOR` data types, and run the semantic similarity search using native HANA SQL. This drastically improves scalability and reduces the memory footprint of the Python service.
+
+### 2. Live ERP Integration (S/4HANA or ECC)
+Currently, our `ZMM_MAT_LEGACY` queue was seeded using an Excel CSV file. In Phase 2, we would configure the SAP Cloud Connector and BTP Destinations to build a live bridge to your actual ERP system. 
+- The CAP service would automatically poll or receive webhooks for newly created unclassified materials.
+- When a user hits "Approve" in the React UI, the system would use a BAPI or SAP OData API to automatically write the approved HSN code back into the live `MARC`/`MARA` tables in your ERP.
+
+### 3. Full SAP BTP Deployment & Security
+We would package all three microservices and deploy them to the cloud:
+- **FastAPI Backend:** Containerized with Docker and deployed to SAP BTP Cloud Foundry or Kyma runtime.
+- **CAP Server & HANA DB:** Deployed to BTP using `mbt build` and `cf deploy`, binding it to a live SAP HANA Cloud instance.
+- **React Frontend:** Deployed to the SAP HTML5 Application Repository, accessible via SAP Build Workzone (Launchpad).
+- **Security:** We would integrate SAP XSUAA to ensure only authenticated users with specific roles (e.g., "Taxation Expert") can access the UI and approve codes.
+
+### 4. Advanced AI Agent & Analytics
+- **Deeper LLM Context:** If the AI is unsure about a material, Phase 2 could allow the LLM to dynamically fetch the Bill of Materials (BOM) or Purchase Order history from SAP to gain more context before making a tie-breaking decision.
+- **Analytics Dashboard:** Adding a dashboard to the React UI to track KPIs: AI accuracy, human override rate, and average time saved per material classification.
