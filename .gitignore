@@ -4,7 +4,10 @@
 *credentials*
 
 # Real/proprietary data — never commit (material master exports, govt HSN/SAC source, generated seed CSVs)
-
+*.xlsx
+*.xls
+cap/db/data/*.csv
+*csv
 
 # Dependencies
 node_modules/
