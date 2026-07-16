@@ -10,6 +10,7 @@ service HSNService {
   entity GovtSACMaster           as projection on hsn.GovtSACMaster;
   entity ApprovedClassifications as projection on hsn.ApprovedClassifications;
   entity ZMM_MAT_LEGACY          as projection on hsn.ZMM_MAT_LEGACY;
+  entity CandidateSuggestions    as projection on hsn.CandidateSuggestions;
 
   event TariffApproved {
     MaterialNumber: String;
