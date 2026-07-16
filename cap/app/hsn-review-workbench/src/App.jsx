@@ -5,6 +5,7 @@ import './index.css';
 import MaterialQueueTable from './components/MaterialQueueTable';
 import IngestionPage from './pages/IngestionPage';
 import MasterDataPage from './pages/MasterDataPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 
 /**
  * App root — Master Data Governance
@@ -31,6 +32,7 @@ export default function App() {
             {itemCount > 0 && <Tag colorScheme="8" style={{ marginLeft: '8px' }}>{itemCount}</Tag>}
           </Link>
           <Link to="/view" className={`hsn-nav-link ${location.pathname === '/view' ? 'active' : ''}`}>Data Explorer</Link>
+          <Link to="/analytics" className={`hsn-nav-link ${location.pathname === '/analytics' ? 'active' : ''}`}>Analytics</Link>
         </nav>
       </header>
 
@@ -41,6 +43,7 @@ export default function App() {
           <Route path="/add" element={<IngestionPage />} />
           <Route path="/review" element={<MaterialQueueTable onDataLoaded={setItemCount} />} />
           <Route path="/view" element={<MasterDataPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
         </Routes>
       </main>
     </div>

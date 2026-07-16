@@ -1,47 +1,90 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Button, Input, Label, Title, Panel } from '@ui5/webcomponents-react';
 import { addLegacyMaterial } from '../services/odataClient';
 
+const FIELD_DEFAULTS = { Material_Type: 'FERT', HSN: '9999' };
+
+const SECTIONS = [
+  {
+    title: '1. Primary Identification',
+    fields: [
+      ['Material', 'Material Number', true],
+      ['Material_Description', 'Description', true],
+      ['Material_Description_1', 'Description 1'],
+      ['Old_material_number', 'Old Material Number'],
+      ['Manufacturer_Part_No_', 'Manufacturer Part No'],
+    ],
+  },
+  {
+    title: '2. Categorization & Characteristics',
+    fields: [
+      ['Material_Type', 'Material Type (e.g. FERT)'],
+      ['Material_Group', 'Material Group'],
+      ['Material_Group_3', 'Material Group 3'],
+      ['Material_Group_4', 'Material Group 4'],
+      ['Item_Plan_Type', 'Item Plan Type'],
+    ],
+  },
+  {
+    title: '3. Organizational & Plant Data',
+    fields: [
+      ['ZZ1_MM_RP_PLT', 'Plant (ZZ1_MM_RP_PLT)'],
+      ['Plant_type_Legacy', 'Plant Type Legacy'],
+      ['Legacy_Company_Code', 'Legacy Company Code'],
+      ['Storage_Location_Extend', 'Storage Location'],
+      ['Loading_Group', 'Loading Group'],
+      ['Valuation_Class', 'Valuation Class'],
+    ],
+  },
+  {
+    title: '4. Lifecycle & Flags',
+    fields: [
+      ['Valid_From', 'Valid From (YYYY-MM-DD)'],
+      ['Effective_Till_Date', 'Effective Till (YYYY-MM-DD)'],
+      ['DOMESTIC_FLAG', 'Domestic Flag'],
+      ['NO_STOCK_CHECK_IND', 'No Stock Check Ind'],
+      ['Process_Flag', 'Process Flag'],
+    ],
+  },
+  {
+    title: '5. Base Units & Weights',
+    fields: [
+      ['Base_Unit_of_Measure', 'Base Unit of Measure'],
+      ['Unit_of_Weight', 'Unit of Weight'],
+      ['Volume_Unit', 'Volume Unit'],
+    ],
+  },
+  {
+    title: '6. Advanced Unit Conversions',
+    collapsed: true,
+    fieldGroups: [
+      [['Numerator', 'Numerator (Base)'], ['Denominator', 'Denominator (Base)'], ['Display_Unit_Measure', 'Display Unit Measure']],
+      [['Base_Unit_of_Measure_1', 'Base Unit 1'], ['Numerator_1', 'Numerator 1'], ['Denominator_1', 'Denominator 1'], ['Display_Unit_Measure_1', 'Display Unit 1']],
+      [['Base_Unit_of_Measure_2', 'Base Unit 2'], ['Numerator_2', 'Numerator 2'], ['Denominator_2', 'Denominator 2'], ['Display_Unit_Measure_2', 'Display Unit 2']],
+      [['Numerator_3', 'Numerator 3'], ['Denominator_3', 'Denominator 3'], ['Display_Unit_Measure_3', 'Display Unit 3']],
+      [['Numerator_4', 'Numerator 4'], ['Denominator_4', 'Denominator 4'], ['Display_Unit_Measure_4', 'Display Unit 4']],
+      [['Numerator_5', 'Numerator 5'], ['Denominator_5', 'Denominator 5']],
+    ],
+  },
+  {
+    title: '7. Miscellaneous',
+    fields: [
+      ['Legacy_Field_Value', 'Legacy Field Value'],
+      ['POTXT', 'POTXT'],
+    ],
+  },
+];
+
+const PANEL_BODY = { display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' };
+const GROUP_DIVIDER = { width: '100%', height: '1px', background: '#ccc', margin: '0.5rem 0' };
+
 const INITIAL_STATE = {
-  Material: '',
-  Material_Description: '',
-  Material_Description_1: '',
-  Old_material_number: '',
-  Manufacturer_Part_No_: '',
-  
-  Material_Type: 'FERT',
-  Material_Group: '',
-  Material_Group_3: '',
-  Material_Group_4: '',
-  Item_Plan_Type: '',
-  
-  ZZ1_MM_RP_PLT: '',
-  Plant_type_Legacy: '',
-  Legacy_Company_Code: '',
-  Storage_Location_Extend: '',
-  Loading_Group: '',
-  Valuation_Class: '',
-  
-  Valid_From: '',
-  Effective_Till_Date: '',
-  DOMESTIC_FLAG: '',
-  NO_STOCK_CHECK_IND: '',
-  Process_Flag: '',
-  
-  Unit_of_Weight: '',
-  Volume_Unit: '',
-  Base_Unit_of_Measure: '',
-  
-  Numerator: '', Denominator: '', Display_Unit_Measure: '',
-  Numerator_1: '', Denominator_1: '', Display_Unit_Measure_1: '', Base_Unit_of_Measure_1: '',
-  Numerator_2: '', Denominator_2: '', Display_Unit_Measure_2: '', Base_Unit_of_Measure_2: '',
-  Numerator_3: '', Denominator_3: '', Display_Unit_Measure_3: '',
-  Numerator_4: '', Denominator_4: '', Display_Unit_Measure_4: '',
-  Numerator_5: '', Denominator_5: '',
-  
-  Legacy_Field_Value: '',
-  POTXT: '',
-  HSN: '9999'
+  ...Object.fromEntries(
+    SECTIONS.flatMap(({ fields, fieldGroups }) =>
+      (fields ?? fieldGroups.flat()).map(([key]) => [key, FIELD_DEFAULTS[key] ?? ''])
+    )
+  ),
+  HSN: '9999',
 };
 
 export default function IngestionPage() {
@@ -59,7 +102,7 @@ export default function IngestionPage() {
       setMessage('Error: Material Number and Description are required.');
       return;
     }
-    
+
     setLoading(true);
     setMessage('');
     try {
@@ -79,13 +122,27 @@ export default function IngestionPage() {
   const renderField = (field, label, required = false) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: '1 1 calc(33.333% - 1rem)', minWidth: '200px' }}>
       <Label required={required}>{label || field}</Label>
-      <Input 
-        value={formData[field]} 
-        onInput={(e) => handleChange(field, e.target.value)} 
+      <Input
+        value={formData[field]}
+        onInput={(e) => handleChange(field, e.target.value)}
         style={{ width: '100%' }}
       />
     </div>
   );
+
+  const renderSectionFields = (section) => {
+    if (section.fieldGroups) {
+      return section.fieldGroups.map((group, i) => (
+        <Fragment key={i}>
+          {i > 0 && <div style={GROUP_DIVIDER} />}
+          {group.map(([field, label, required]) => renderField(field, label, required))}
+        </Fragment>
+      ));
+    }
+    return section.fields.map(([field, label, required]) => renderField(field, label, required));
+  };
+
+  const isError = /^(Error|Failed)/.test(message);
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', background: 'var(--hsn-surface)' }}>
@@ -95,107 +152,21 @@ export default function IngestionPage() {
       </p>
 
       {message && (
-        <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: message.startsWith('Error') || message.startsWith('Failed') ? 'var(--hsn-error-container)' : '#dcfce7', color: message.startsWith('Error') || message.startsWith('Failed') ? 'var(--hsn-on-error-container)' : '#166534', borderRadius: '4px', fontWeight: 'bold' }}>
+        <div style={{
+          marginBottom: '1.5rem', padding: '1rem', borderRadius: '4px', fontWeight: 'bold',
+          backgroundColor: isError ? 'var(--hsn-error-container)' : '#dcfce7',
+          color: isError ? 'var(--hsn-on-error-container)' : '#166534',
+        }}>
           {message}
         </div>
       )}
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        
-        <Panel headerText="1. Primary Identification">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
-            {renderField('Material', 'Material Number', true)}
-            {renderField('Material_Description', 'Description', true)}
-            {renderField('Material_Description_1', 'Description 1')}
-            {renderField('Old_material_number', 'Old Material Number')}
-            {renderField('Manufacturer_Part_No_', 'Manufacturer Part No')}
-          </div>
-        </Panel>
-
-        <Panel headerText="2. Categorization & Characteristics">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
-            {renderField('Material_Type', 'Material Type (e.g. FERT)')}
-            {renderField('Material_Group', 'Material Group')}
-            {renderField('Material_Group_3', 'Material Group 3')}
-            {renderField('Material_Group_4', 'Material Group 4')}
-            {renderField('Item_Plan_Type', 'Item Plan Type')}
-          </div>
-        </Panel>
-
-        <Panel headerText="3. Organizational & Plant Data">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
-            {renderField('ZZ1_MM_RP_PLT', 'Plant (ZZ1_MM_RP_PLT)')}
-            {renderField('Plant_type_Legacy', 'Plant Type Legacy')}
-            {renderField('Legacy_Company_Code', 'Legacy Company Code')}
-            {renderField('Storage_Location_Extend', 'Storage Location')}
-            {renderField('Loading_Group', 'Loading Group')}
-            {renderField('Valuation_Class', 'Valuation Class')}
-          </div>
-        </Panel>
-
-        <Panel headerText="4. Lifecycle & Flags">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
-            {renderField('Valid_From', 'Valid From (YYYY-MM-DD)')}
-            {renderField('Effective_Till_Date', 'Effective Till (YYYY-MM-DD)')}
-            {renderField('DOMESTIC_FLAG', 'Domestic Flag')}
-            {renderField('NO_STOCK_CHECK_IND', 'No Stock Check Ind')}
-            {renderField('Process_Flag', 'Process Flag')}
-          </div>
-        </Panel>
-
-        <Panel headerText="5. Base Units & Weights">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
-            {renderField('Base_Unit_of_Measure', 'Base Unit of Measure')}
-            {renderField('Unit_of_Weight', 'Unit of Weight')}
-            {renderField('Volume_Unit', 'Volume Unit')}
-          </div>
-        </Panel>
-
-        <Panel headerText="6. Advanced Unit Conversions" collapsed={true}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
-            {renderField('Numerator', 'Numerator (Base)')}
-            {renderField('Denominator', 'Denominator (Base)')}
-            {renderField('Display_Unit_Measure', 'Display Unit Measure')}
-            
-            <div style={{ width: '100%', height: '1px', background: '#ccc', margin: '0.5rem 0' }} />
-            
-            {renderField('Base_Unit_of_Measure_1', 'Base Unit 1')}
-            {renderField('Numerator_1', 'Numerator 1')}
-            {renderField('Denominator_1', 'Denominator 1')}
-            {renderField('Display_Unit_Measure_1', 'Display Unit 1')}
-            
-            <div style={{ width: '100%', height: '1px', background: '#ccc', margin: '0.5rem 0' }} />
-            
-            {renderField('Base_Unit_of_Measure_2', 'Base Unit 2')}
-            {renderField('Numerator_2', 'Numerator 2')}
-            {renderField('Denominator_2', 'Denominator 2')}
-            {renderField('Display_Unit_Measure_2', 'Display Unit 2')}
-            
-            <div style={{ width: '100%', height: '1px', background: '#ccc', margin: '0.5rem 0' }} />
-            
-            {renderField('Numerator_3', 'Numerator 3')}
-            {renderField('Denominator_3', 'Denominator 3')}
-            {renderField('Display_Unit_Measure_3', 'Display Unit 3')}
-            
-            <div style={{ width: '100%', height: '1px', background: '#ccc', margin: '0.5rem 0' }} />
-            
-            {renderField('Numerator_4', 'Numerator 4')}
-            {renderField('Denominator_4', 'Denominator 4')}
-            {renderField('Display_Unit_Measure_4', 'Display Unit 4')}
-            
-            <div style={{ width: '100%', height: '1px', background: '#ccc', margin: '0.5rem 0' }} />
-            
-            {renderField('Numerator_5', 'Numerator 5')}
-            {renderField('Denominator_5', 'Denominator 5')}
-          </div>
-        </Panel>
-
-        <Panel headerText="7. Miscellaneous">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
-            {renderField('Legacy_Field_Value', 'Legacy Field Value')}
-            {renderField('POTXT', 'POTXT')}
-          </div>
-        </Panel>
+        {SECTIONS.map((section) => (
+          <Panel key={section.title} headerText={section.title} collapsed={section.collapsed}>
+            <div style={PANEL_BODY}>{renderSectionFields(section)}</div>
+          </Panel>
+        ))}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem' }}>
           <Button design="Emphasized" type="Submit" disabled={loading} style={{ width: '200px' }}>

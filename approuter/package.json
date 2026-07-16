@@ -1,0 +1,11 @@
+{
+  "name": "hsn-approuter",
+  "version": "1.0.0",
+  "description": "Application Router for HSN Classification App",
+  "dependencies": {
+    "@sap/approuter": "^16"
+  },
+  "scripts": {
+    "start": "node node_modules/@sap/approuter/approuter.js"
+  }
+}

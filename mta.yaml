@@ -9,8 +9,11 @@ build-parameters:
     - builder: custom
       commands:
         - npm ci --prefix cap
+        - npm run build:ui --prefix cap
 
 modules:
+
+  # ─── CAP Backend (Node.js OData Service) ────────────────────────────────
   - name: hsn-cap-srv
     type: nodejs
     path: cap
@@ -24,12 +27,12 @@ modules:
           srv-url: ${default-url}
     parameters:
       buildpack: nodejs_buildpack
+      memory: 512M
+      disk-quota: 1024M
     build-parameters:
-      builder: custom
-      commands:
-        - npm ci --prefix cap
-        - npm run build:ui --prefix cap
+      builder: npm-ci
 
+  # ─── HANA HDI Database Deployer ─────────────────────────────────────────
   - name: hsn-db-deployer
     type: hdb
     path: cap/db
@@ -37,28 +40,76 @@ modules:
       - name: hsn-hana-db
     parameters:
       buildpack: nodejs_buildpack
+      memory: 256M
+      disk-quota: 512M
 
+  # ─── Python AI Lookup Service ────────────────────────────────────────────
   - name: hsn-lookup-service
     type: python
     path: lookup-service
     requires:
       - name: hsn-hana-db
       - name: hsn-event-mesh
-      - name: hsn-redis
       - name: hsn-xsuaa
       - name: srv-api
+    provides:
+      - name: hsn-lookup-api
+        properties:
+          lookup-url: ${default-url}
     parameters:
       buildpack: python_buildpack
       memory: 1024M
       disk-quota: 1024M
 
+  # ─── SAP AppRouter (Authentication + Routing Gateway) ────────────────────
+  - name: hsn-approuter
+    type: approuter.nodejs
+    path: approuter
+    requires:
+      - name: hsn-xsuaa
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api
+          url: ~{srv-url}
+          forwardAuthToken: true
+      - name: hsn-lookup-api
+        group: destinations
+        properties:
+          name: hsn-lookup-api
+          url: ~{lookup-url}
+          forwardAuthToken: true
+      - name: hsn-html5-runtime
+    parameters:
+      memory: 256M
+      disk-quota: 512M
+
+  # ─── UI Deployer (pushes built React bundle to HTML5 Repo) ───────────────
+  - name: hsn-ui-deployer
+    type: com.sap.application.content
+    path: cap/app/hsn-review-workbench
+    requires:
+      - name: hsn-html5-repo
+        parameters:
+          content-target: true
+    build-parameters:
+      build-result: dist
+      requires:
+        - name: hsn-cap-srv
+          artifacts:
+            - dist/**
+          target-path: dist
+
 resources:
+
+  # ─── SAP HANA Cloud HDI Container ───────────────────────────────────────
   - name: hsn-hana-db
     type: com.sap.xs.hdi-container
     parameters:
       service: hana
       service-plan: hdi-shared
 
+  # ─── SAP Event Mesh ─────────────────────────────────────────────────────
   - name: hsn-event-mesh
     type: org.cloudfoundry.managed-service
     parameters:
@@ -66,12 +117,7 @@ resources:
       service-plan: standard
       path: ./event-mesh.json
 
-  - name: hsn-redis
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: redis
-      service-plan: application-cache
-
+  # ─── SAP XSUAA (Authentication) ─────────────────────────────────────────
   - name: hsn-xsuaa
     type: org.cloudfoundry.managed-service
     parameters:
@@ -81,3 +127,16 @@ resources:
       config:
         xsappname: hsn-app-${org}-${space}
         tenant-mode: dedicated
+
+  # ─── SAP HTML5 Application Repository ───────────────────────────────────
+  - name: hsn-html5-repo
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host
+
+  - name: hsn-html5-runtime
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-runtime
