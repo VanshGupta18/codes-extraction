@@ -15,7 +15,11 @@ async def startup():
     print("Loading initial data from CAP...")
     
     # 1. Fetch tables
-    approved = await cap_client.get_approved_classifications()
+    approved_raw = await cap_client.get_approved_classifications()
+    approved = [
+        {"MaterialNumber": a["MaterialNumber"], "Description": a["Description"], "Code": a["HSN"]}
+        for a in approved_raw if "HSN" in a
+    ]
     hsn_rows = await cap_client.get_govt_hsn()
     sac_rows = await cap_client.get_govt_sac()
     
