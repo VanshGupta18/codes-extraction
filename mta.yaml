@@ -53,6 +53,10 @@ modules:
       - name: hsn-event-mesh
       - name: hsn-xsuaa
       - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api
+          CAP_BASE_URL: ~{srv-url}/odata/v4/hsn
     provides:
       - name: hsn-lookup-api
         properties:
