@@ -1,27 +1,9 @@
 {
+    "emname": "hsn-event-mesh-dev",
+    "namespace": "hsn/lookup/events",
     "options": {
         "management": true,
         "messagingrest": true,
         "messaging": true
-    },
-    "rules": {
-        "topicRules": {
-            "publishFilter": [
-                "${namespace}/*"
-            ],
-            "subscribeFilter": [
-                "${namespace}/*"
-            ]
-        },
-        "queueRules": {
-            "publishFilter": [
-                "${namespace}/*"
-            ],
-            "subscribeFilter": [
-                "${namespace}/*"
-            ]
-        }
-    },
-    "emname": "hsn-event-mesh-dev",
-    "namespace": "hsn/lookup/events"
+    }
 }
