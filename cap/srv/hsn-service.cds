@@ -4,6 +4,7 @@ using { hsn } from '../db/schema';
 // logic lives in lookup-service/, not here.
 service HSNService {
   entity MARA                    as projection on hsn.MARA;
+  entity MAKT                    as projection on hsn.MAKT;
   entity GovtHSNMaster           as projection on hsn.GovtHSNMaster;
   entity GovtSACMaster           as projection on hsn.GovtSACMaster;
   entity ApprovedClassifications as projection on hsn.ApprovedClassifications;

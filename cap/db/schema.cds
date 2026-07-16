@@ -7,6 +7,13 @@ entity MARA {
       MaterialType    : String(4);
 }
 
+/** SAP Material Descriptions (source of truth for matching text). */
+entity MAKT {
+  key MaterialNumber : String(40);
+  key Language         : String(2);
+      Description     : String;
+}
+
 /** Official government HSN tariff master (goods), leaf 8-digit codes, ancestor-enriched. */
 entity GovtHSNMaster {
   key Code        : String(8);

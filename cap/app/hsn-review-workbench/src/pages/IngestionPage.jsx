@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { Button, Input, Label, Title, Panel } from '@ui5/webcomponents-react';
-import { addLegacyMaterial } from '../services/odataClient';
+import { addLegacyMaterial, rankMaterial } from '../services/odataClient';
 
 const FIELD_DEFAULTS = { Material_Type: 'FERT', HSN: '9999' };
 
@@ -110,8 +110,12 @@ export default function IngestionPage() {
         ...formData,
         Legacy_Serial_number: `LEGACY-${Date.now()}`
       });
+      const material = formData.Material;
       setMessage('Success! Material added to the unclassified legacy queue.');
       setFormData(INITIAL_STATE);
+      rankMaterial(material).catch(() => {
+        /* ranking runs in background; user can also run batch pipeline */
+      });
     } catch (err) {
       setMessage(`Failed to add material: ${err.message}`);
     } finally {

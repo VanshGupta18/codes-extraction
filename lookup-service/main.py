@@ -1,5 +1,5 @@
 import asyncio
-import httpx
+import os
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 import cap_client
@@ -11,43 +11,46 @@ _index: govt_lookup.Index | None = None
 _index_error: str | None = None
 _index_lock = asyncio.Lock()
 
-def _normalize_rows(raw: list[dict], code_key: str = "Code") -> list[dict]:
+ENABLE_EMBEDDINGS = os.environ.get("ENABLE_EMBEDDINGS", "").lower() in ("1", "true", "yes")
+
+def _normalize_rows(raw: list[dict], code_key: str = "Code", source: str = "GOVT") -> list[dict]:
     rows = []
     for row in raw:
         code = row.get(code_key) or row.get("HSN")
         desc = row.get("Description")
         if code and desc:
-            rows.append({"Code": str(code), "Description": desc, **({"MaterialNumber": row["MaterialNumber"]} if "MaterialNumber" in row else {})})
+            normalized = {"Code": str(code), "Description": desc, "Source": source}
+            if row.get("MaterialNumber"):
+                normalized["MaterialNumber"] = row["MaterialNumber"]
+            rows.append(normalized)
     return rows
 
 async def _build_index():
     global _index, _index_error
-    print("Loading search index from CAP...")
+    print("Loading BM25 search index from CAP...")
 
     for attempt in range(1, 31):
         try:
             approved_raw = await cap_client.get_approved_classifications()
-            approved = _normalize_rows([a for a in approved_raw if a.get("HSN")], code_key="HSN")
-            hsn_rows = _normalize_rows(await cap_client.get_govt_hsn())
-            sac_rows = _normalize_rows(await cap_client.get_govt_sac())
+            approved = _normalize_rows([a for a in approved_raw if a.get("HSN")], code_key="HSN", source="APPROVED")
+            hsn_rows = _normalize_rows(await cap_client.get_govt_hsn(), source="GOVT_HSN")
+            sac_rows = _normalize_rows(await cap_client.get_govt_sac(), source="GOVT_SAC")
             mara = await cap_client.get_mara()
 
-            approved_numbers = {a["MaterialNumber"] for a in approved if "MaterialNumber" in a}
+            approved_by_mat = {a["MaterialNumber"]: a["Code"] for a in approved if "MaterialNumber" in a}
             affinity = {}
             for mat in mara:
+                mat_num = mat.get("MaterialNumber")
                 mat_group = mat.get("MaterialGroup")
-                if mat_group and mat.get("MaterialNumber") in approved_numbers:
-                    appr = next((a for a in approved if a.get("MaterialNumber") == mat["MaterialNumber"]), None)
-                    if appr:
-                        affinity[mat_group] = appr["Code"][:4]
+                if mat_group and mat_num in approved_by_mat:
+                    affinity[mat_group] = approved_by_mat[mat_num][:4]
 
             all_rows = approved + hsn_rows + sac_rows
-            print(f"Building BM25 index over {len(all_rows)} rows (embeddings loaded lazily per request)...")
+            print(f"BM25 index ready over {len(all_rows)} reference rows.")
 
             async with _index_lock:
                 _index = govt_lookup.Index(fallback_rows=all_rows, fallback_affinity=affinity)
                 _index_error = None
-            print("Search engine ready.")
             return
         except Exception as exc:
             _index_error = str(exc)
@@ -63,7 +66,7 @@ async def startup():
 @app.get("/health")
 async def health():
     if _index:
-        return {"status": "ready", "documents": len(_index.rows)}
+        return {"status": "ready", "documents": len(_index.rows), "embeddings": ENABLE_EMBEDDINGS}
     if _index_error:
         return {"status": "starting", "lastError": _index_error}
     return {"status": "starting"}
@@ -72,19 +75,30 @@ class ApproveRequest(BaseModel):
     materialNumber: str
     chosenCode: str
 
-@app.get("/candidates/{material_number}")
-async def candidates(material_number: str):
+def _extend_index(row: dict):
+    if _index:
+        _index.add_document({**row, "Source": "APPROVED"})
+
+async def _rank_material(material_number: str) -> dict:
     if not _index:
         raise HTTPException(503, _index_error or "Index not ready")
 
-    description, material_group = await cap_client.get_legacy_material_details(material_number)
-    if description is None:
-        raise HTTPException(404, f"Legacy Data: no description for material '{material_number}'")
+    details = await cap_client.get_material_details(material_number)
+    if details is None:
+        raise HTTPException(404, f"No material master (MARA/MAKT) or legacy description for '{material_number}'")
 
-    query_emb = await aicore_client.get_embedding(description)
-    top_cands = _index.top_matches(description, query_emb, material_group=material_group, n=3)
+    description = details["Description"]
+    material_group = details.get("MaterialGroup")
+    # MARA MaterialType selects govt reference: goods → HSN, services → SAC
+    service_types = {"DIEN", "SERV", "ZSER"}
+    mat_type = (details.get("MaterialType") or "").upper()
+    tariff = "SAC" if mat_type in service_types else "HSN"
 
-    if len(top_cands) >= 2:
+    top_cands = _index.top_matches_bm25(description, material_group=material_group, n=3, tariff=tariff)
+
+    if ENABLE_EMBEDDINGS and len(top_cands) >= 2:
+        query_emb = await aicore_client.get_embedding(description)
+        top_cands = _index.top_matches(description, query_emb, material_group=material_group, n=3)
         score_diff = top_cands[0]["score"] - top_cands[1]["score"]
         if score_diff < 1.0:
             winner_code = await aicore_client.adjudicate(description, top_cands)
@@ -96,67 +110,83 @@ async def candidates(material_number: str):
     return {
         "materialNumber": material_number,
         "description": description,
+        "materialGroup": material_group,
+        "materialType": details.get("MaterialType"),
         "candidates": top_cands,
     }
 
-async def async_index_update(row: dict):
-    row["Embedding"] = await aicore_client.get_embedding(row["Description"])
-    if _index:
-        _index.add_document(row)
+async def _rank_and_save(material_number: str) -> dict:
+    result = await _rank_material(material_number)
+    await cap_client.save_candidate_suggestions(material_number, result["candidates"])
+    return result
+
+@app.post("/rank/{material_number}")
+async def rank_material(material_number: str):
+    """Rank one pending material (BM25) and persist top-3 to CandidateSuggestions."""
+    return await _rank_and_save(material_number)
+
+@app.get("/candidates/{material_number}")
+async def get_candidates(material_number: str, refresh: bool = False):
+    """Return precomputed candidates from CAP. Use ?refresh=true to re-rank and save."""
+    if refresh:
+        return await _rank_and_save(material_number)
+
+    rows = await cap_client.get_candidate_suggestions(material_number)
+    if not rows:
+        raise HTTPException(
+            404,
+            f"No precomputed candidates for '{material_number}'. Run batch pipeline or POST /rank/{material_number}.",
+        )
+
+    details = await cap_client.get_material_details(material_number)
+    return {
+        "materialNumber": material_number,
+        "description": details["Description"] if details else None,
+        "candidates": [
+            {"Code": r["CandidateCode"], "score": float(r["Score"]), "Rank": r["Rank"]}
+            for r in rows
+        ],
+    }
 
 @app.post("/approve")
-async def approve(req: ApproveRequest, background_tasks: BackgroundTasks):
-    description, _ = await cap_client.get_legacy_material_details(req.materialNumber)
-    if description is None:
-        raise HTTPException(404, f"Legacy Data: no description for material '{req.materialNumber}'")
+async def approve(req: ApproveRequest):
+    details = await cap_client.get_material_details(req.materialNumber)
+    if details is None:
+        raise HTTPException(404, f"No material master (MARA/MAKT) or legacy data for '{req.materialNumber}'")
 
+    description = details["Description"]
     await cap_client.approve_classification(req.materialNumber, description, req.chosenCode)
 
-    new_doc = {
+    _extend_index({
         "MaterialNumber": req.materialNumber,
         "Code": req.chosenCode,
-        "Description": description
-    }
-    background_tasks.add_task(async_index_update, new_doc)
+        "Description": description,
+    })
 
     return {"materialNumber": req.materialNumber, "hsn": req.chosenCode}
 
 async def run_batch_job():
-    print("1. Fetching pending materials (dummy HSN 9999) from legacy table...")
-    async with httpx.AsyncClient(base_url=cap_client.CAP_BASE_URL) as client:
-        resp = await client.get("/ZMM_MAT_LEGACY?$filter=HSN%20eq%20'9999'")
-        if resp.status_code != 200:
-            print(f"Error fetching legacy data: {resp.text}")
-            return
+    if not _index:
+        print(f"Batch aborted: index not ready ({_index_error})")
+        return
 
-        pending_items = resp.json().get("value", [])
-        unique_materials = list(set(item["Material"] for item in pending_items))
-        print(f"Found {len(unique_materials)} unique pending materials.")
+    material_numbers = await cap_client.get_pending_material_numbers()
+    print(f"Batch: ranking {len(material_numbers)} pending materials (BM25)...")
 
-        for mat_num in unique_materials:
-            print(f"\nProcessing {mat_num}...")
-            try:
-                res = await candidates(mat_num)
-                top_cands = res["candidates"]
+    ok, failed = 0, 0
+    for mat_num in material_numbers:
+        try:
+            result = await _rank_and_save(mat_num)
+            top = result["candidates"][0]["Code"] if result["candidates"] else "—"
+            print(f"  {mat_num}: saved {len(result['candidates'])} candidates (top: {top})")
+            ok += 1
+        except Exception as exc:
+            print(f"  {mat_num}: failed ({exc})")
+            failed += 1
 
-                for rank, c in enumerate(top_cands, start=1):
-                    payload = {
-                        "MaterialNumber": mat_num,
-                        "Rank": rank,
-                        "CandidateCode": c["Code"],
-                        "Score": float(c["score"])
-                    }
-                    post_resp = await client.post("/CandidateSuggestions", json=payload)
-                    if post_resp.status_code not in (200, 201):
-                        if "already exists" not in post_resp.text:
-                            print(f"Error posting candidate: {post_resp.text}")
-                    else:
-                        print(f"  Saved rank {rank}: {c['Code']} (score: {payload['Score']})")
-            except Exception as e:
-                print(f"Warning: Could not generate candidates for {mat_num} ({e})")
-        print("Batch processing complete!")
+    print(f"Batch complete: {ok} ranked, {failed} failed.")
 
 @app.post("/trigger_batch")
 async def trigger_batch(background_tasks: BackgroundTasks):
     background_tasks.add_task(run_batch_job)
-    return {"message": "Batch job started in background"}
+    return {"message": "Batch job started. Results will appear in CandidateSuggestions."}

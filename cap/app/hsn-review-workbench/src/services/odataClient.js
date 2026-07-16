@@ -12,43 +12,49 @@
  * Fetch the materials queue with HSN candidates and status.
  */
 export async function fetchMaterialQueue() {
-  // 1. Fetch legacy materials queue (only those that are still 9999)
-  const resLegacy = await fetch('/odata/v4/hsn/ZMM_MAT_LEGACY?$filter=HSN eq \'9999\'&$select=Material,Material_Description,Material_Type,Material_Group,ZZ1_MM_RP_PLT,Legacy_Serial_number');
+  const [resLegacy, resMara, resMakt, resCands] = await Promise.all([
+    fetch('/odata/v4/hsn/ZMM_MAT_LEGACY?$filter=HSN eq \'9999\'&$select=Material,ZZ1_MM_RP_PLT,Legacy_Serial_number'),
+    fetch('/odata/v4/hsn/MARA?$select=MaterialNumber,MaterialGroup,MaterialType'),
+    fetch('/odata/v4/hsn/MAKT?$filter=Language eq \'EN\'&$select=MaterialNumber,Description'),
+    fetch('/odata/v4/hsn/CandidateSuggestions?$orderby=Rank asc'),
+  ]);
   if (!resLegacy.ok) throw new Error('Failed to fetch legacy materials');
+  if (!resMara.ok) throw new Error('Failed to fetch MARA master data');
+  if (!resMakt.ok) throw new Error('Failed to fetch MAKT descriptions');
+  if (!resCands.ok) throw new Error('Failed to fetch candidate suggestions');
+
   const jsonLegacy = await resLegacy.json();
-  
-  // 2. Group by Material since the legacy table may have duplicates for the same Material
+  const maraById = new Map((await resMara.json()).value.map((r) => [r.MaterialNumber, r]));
+  const maktById = new Map((await resMakt.json()).value.map((r) => [r.MaterialNumber, r.Description]));
+  const jsonCands = await resCands.json();
+
   const uniqueMaterials = new Map();
   for (const row of jsonLegacy.value) {
-    if (!uniqueMaterials.has(row.Material)) {
-      uniqueMaterials.set(row.Material, {
-        materialId: row.Material,
-        materialType: row.Material_Type,
-        description: row.Material_Description,
-        category: row.Material_Group, // mapped loosely
-        group: row.Material_Group,
-        plant: row.ZZ1_MM_RP_PLT || 'N/A',
-        hsnCandidates: [],
-        status: 'Pending',
-        reviewedBy: null,
-        lastModified: new Date().toISOString()
-      });
-    }
+    if (!row.Material || uniqueMaterials.has(row.Material)) continue;
+    const mara = maraById.get(row.Material);
+    if (!mara) continue; // MARA is source of truth — skip orphan legacy rows
+
+    uniqueMaterials.set(row.Material, {
+      materialId: row.Material,
+      materialType: mara.MaterialType,
+      description: maktById.get(row.Material) ?? '',
+      category: mara.MaterialGroup,
+      group: mara.MaterialGroup,
+      plant: row.ZZ1_MM_RP_PLT || 'N/A',
+      hsnCandidates: [],
+      status: 'Pending',
+      reviewedBy: null,
+      lastModified: new Date().toISOString(),
+    });
   }
 
-  // 3. Fetch candidate suggestions
-  const resCands = await fetch('/odata/v4/hsn/CandidateSuggestions?$orderby=Rank asc');
-  if (!resCands.ok) throw new Error('Failed to fetch candidate suggestions');
-  const jsonCands = await resCands.json();
-  
-  // 4. Attach candidates to materials
   for (const cand of jsonCands.value) {
     if (uniqueMaterials.has(cand.MaterialNumber)) {
       const mat = uniqueMaterials.get(cand.MaterialNumber);
       mat.hsnCandidates.push({
         hsn: cand.CandidateCode,
         confidence: cand.Score,
-        source: cand.Rank === 1 ? 'MARA Affinity Match' : 'Semantic AI Match'
+        source: cand.Rank === 1 ? 'BM25 Top Match' : 'BM25 Alternative',
       });
       // If we have AI candidates, set status to AI-Assist
       mat.status = 'AI-Assist';
@@ -172,7 +178,7 @@ export async function fetchMaterialDetails(materialId) {
 }
 
 /**
- * Triggers the AI batch pipeline job in the FastAPI backend.
+ * Triggers the batch ranking job (BM25) for all pending legacy materials.
  */
 export async function triggerBatchPipeline() {
   const res = await fetch('/api/trigger_batch', {
@@ -182,4 +188,17 @@ export async function triggerBatchPipeline() {
     throw new Error('Failed to trigger batch job.');
   }
   return await res.json();
+}
+
+/**
+ * Rank one material and write top-3 to CandidateSuggestions (used after manual ingest).
+ */
+export async function rankMaterial(materialId) {
+  const res = await fetch(`/api/rank/${encodeURIComponent(materialId)}`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to rank material ${materialId}.`);
+  }
+  return res.json();
 }

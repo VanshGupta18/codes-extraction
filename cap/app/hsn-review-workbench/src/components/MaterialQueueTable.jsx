@@ -147,7 +147,7 @@ export default function MaterialQueueTable({ onDataLoaded }) {
     setBatchJobTriggering(true);
     try {
       await triggerBatchPipeline();
-      alert("Batch Pipeline triggered successfully! It is running in the background. Please wait a few moments and click Refresh to see the AI suggestions appear.");
+      alert("Batch pipeline started. BM25 ranking runs in the background — click Refresh in a few moments to see suggestions.");
     } catch (e) {
       alert("Failed to trigger batch job: " + e.message);
     } finally {
