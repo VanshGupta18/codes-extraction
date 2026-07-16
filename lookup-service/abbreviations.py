@@ -1,5 +1,5 @@
 # Common SAP/automotive engineering shorthand seen in MAKT descriptions.
-# Starter set — extend with real abbreviations as they show up in Maruti's own data.
+# Starter set — extend with real abbreviations as they show up in your own data.
 ABBREVIATIONS = {
     "RR": "REAR", "FR": "FRONT", "LH": "LEFT HAND", "RH": "RIGHT HAND",
     "BRKT": "BRACKET", "ASSY": "ASSEMBLY", "CYL": "CYLINDER", "HSG": "HOUSING",

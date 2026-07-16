@@ -1,0 +1,27 @@
+{
+    "options": {
+        "management": true,
+        "messagingrest": true,
+        "messaging": true
+    },
+    "rules": {
+        "topicRules": {
+            "inbound": [
+                "hsn/lookup/events/TariffApproved"
+            ],
+            "outbound": [
+                "hsn/lookup/events/TariffApproved"
+            ]
+        },
+        "queueRules": {
+            "inbound": [
+                "hsn_lookup_queue"
+            ],
+            "outbound": [
+                "hsn_lookup_queue"
+            ]
+        }
+    },
+    "emname": "hsn-event-mesh-dev",
+    "namespace": "hsn/lookup/events"
+}

@@ -1,4 +1,4 @@
-# HSN Classification Service (Maruti Suzuki)
+# HSN Classification Service
 
 Automates HSN/SAC (GST tariff) code classification for SAP material master data. Materials arrive in SAP with a dummy HSN (`9999`); this service suggests the top-3 most likely real HSN/SAC codes for a human to approve, and gets smarter over time as approvals accumulate.
 
@@ -81,7 +81,7 @@ curl -X POST http://localhost:8000/approve \
 
 ## Current status
 
-The core pipeline above is built and verified against small hand-authored seed data (`MAT-3001`..`MAT-3003`). **In progress:** wiring in the real Maruti exports (`MARA ...xlsx`, `MARC ...xlsx`, `MAT LEGACY TABLE CUSTOM ...xlsx` in the project root) to replace the placeholder seed data with real material master records, so the pending-classification queue (`ZMM_MAT_LEGACY`) reflects genuine materials instead of demo rows.
+The core pipeline is built and verified end-to-end against real material master exports (`docs/*.xlsx`, gitignored — never committed) via `scripts/convert_hsn_xlsx.py` and `scripts/convert_custom_xlsx.py`, so the pending-classification queue (`ZMM_MAT_LEGACY`) reflects genuine materials instead of demo rows.
 
 ## Deferred (clean extension points, not built yet)
 
