@@ -13,7 +13,7 @@
  */
 export async function fetchMaterialQueue() {
   // 1. Fetch legacy materials queue (only those that are still 9999)
-  const resLegacy = await fetch('/odata/v4/HSNService/ZMM_MAT_LEGACY?$filter=HSN eq \'9999\'&$select=Material,Material_Description,Material_Type,Material_Group,ZZ1_MM_RP_PLT,Legacy_Serial_number');
+  const resLegacy = await fetch('/odata/v4/hsn/ZMM_MAT_LEGACY?$filter=HSN eq \'9999\'&$select=Material,Material_Description,Material_Type,Material_Group,ZZ1_MM_RP_PLT,Legacy_Serial_number');
   if (!resLegacy.ok) throw new Error('Failed to fetch legacy materials');
   const jsonLegacy = await resLegacy.json();
   
@@ -37,7 +37,7 @@ export async function fetchMaterialQueue() {
   }
 
   // 3. Fetch candidate suggestions
-  const resCands = await fetch('/odata/v4/HSNService/CandidateSuggestions?$orderby=Rank asc');
+  const resCands = await fetch('/odata/v4/hsn/CandidateSuggestions?$orderby=Rank asc');
   if (!resCands.ok) throw new Error('Failed to fetch candidate suggestions');
   const jsonCands = await resCands.json();
   
@@ -96,7 +96,7 @@ export async function submitManualHsn(materialId, hsn, reason) {
 export async function bulkApprove(materialIds) {
   for (const matId of materialIds) {
     // 1. Fetch the top-ranked candidate for this material
-    const res = await fetch(`/odata/v4/HSNService/CandidateSuggestions?$filter=MaterialNumber eq '${matId}' and Rank eq 1`);
+    const res = await fetch(`/odata/v4/hsn/CandidateSuggestions?$filter=MaterialNumber eq '${matId}' and Rank eq 1`);
     const json = await res.json();
     
     // 2. Approve it
@@ -106,4 +106,17 @@ export async function bulkApprove(materialIds) {
     }
   }
   return { success: true, count: materialIds.length };
+}
+
+/**
+ * Triggers the AI batch pipeline job in the FastAPI backend.
+ */
+export async function triggerBatchJob() {
+  const res = await fetch('/api/trigger_batch', {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error('Failed to trigger batch job.');
+  }
+  return await res.json();
 }

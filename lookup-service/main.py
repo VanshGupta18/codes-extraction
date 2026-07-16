@@ -1,4 +1,5 @@
 import asyncio
+import httpx
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 import cap_client
@@ -100,3 +101,43 @@ async def approve(req: ApproveRequest, background_tasks: BackgroundTasks):
     background_tasks.add_task(async_index_update, new_doc)
     
     return {"materialNumber": req.materialNumber, "hsn": req.chosenCode}
+
+async def run_batch_job():
+    print("1. Fetching pending materials (dummy HSN 9999) from legacy table...")
+    async with httpx.AsyncClient(base_url="http://localhost:4004/odata/v4/hsn") as client:
+        resp = await client.get("/ZMM_MAT_LEGACY?$filter=HSN%20eq%20'9999'")
+        if resp.status_code != 200:
+            print(f"Error fetching legacy data: {resp.text}")
+            return
+            
+        pending_items = resp.json().get("value", [])
+        unique_materials = list(set(item["Material"] for item in pending_items))
+        print(f"Found {len(unique_materials)} unique pending materials.")
+        
+        for mat_num in unique_materials:
+            print(f"\nProcessing {mat_num}...")
+            try:
+                res = await candidates(mat_num)
+                top_cands = res["candidates"]
+                
+                for rank, c in enumerate(top_cands, start=1):
+                    payload = {
+                        "MaterialNumber": mat_num,
+                        "Rank": rank,
+                        "CandidateCode": c["Code"],
+                        "Score": float(c["score"])
+                    }
+                    post_resp = await client.post("/CandidateSuggestions", json=payload)
+                    if post_resp.status_code not in (200, 201):
+                        if "already exists" not in post_resp.text:
+                            print(f"Error posting candidate: {post_resp.text}")
+                    else:
+                        print(f"  Saved rank {rank}: {c['Code']} (score: {payload['Score']})")
+            except Exception as e:
+                print(f"Warning: Could not generate candidates for {mat_num} ({e})")
+        print("Batch processing complete!")
+
+@app.post("/trigger_batch")
+async def trigger_batch(background_tasks: BackgroundTasks):
+    background_tasks.add_task(run_batch_job)
+    return {"message": "Batch job started in background"}

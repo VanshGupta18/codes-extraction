@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchMaterialQueue, bulkApprove } from '../services/odataClient';
+import { fetchMaterialQueue, bulkApprove, triggerBatchJob } from '../services/odataClient';
 import { Avatar, Tag, MultiComboBox, MultiComboBoxItem, Button } from '@ui5/webcomponents-react';
 import '@ui5/webcomponents-icons/dist/question-mark.js';
 import StatusBadge from './StatusBadge';
@@ -43,7 +43,8 @@ export default function MaterialQueueTable({ onDataLoaded }) {
 
   // Bulk state
   const [bulkLoading, setBulkLoading] = useState(false);
-
+  const [batchJobTriggering, setBatchJobTriggering] = useState(false);
+  
   // ── Load data ──────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -142,6 +143,18 @@ export default function MaterialQueueTable({ onDataLoaded }) {
     return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
+  const handleRunBatch = async () => {
+    setBatchJobTriggering(true);
+    try {
+      await triggerBatchJob();
+      alert("Batch Pipeline triggered successfully! It is running in the background. Please wait a few moments and click Refresh to see the AI suggestions appear.");
+    } catch (e) {
+      alert("Failed to trigger batch job: " + e.message);
+    } finally {
+      setBatchJobTriggering(false);
+    }
+  };
+
   return (
     <>
       {/* ── Page Header ── */}
@@ -152,9 +165,14 @@ export default function MaterialQueueTable({ onDataLoaded }) {
             {filtered.length} material{filtered.length !== 1 ? 's' : ''} — review and approve AI-proposed HSN codes
           </div>
         </div>
-        <button className="hsn-btn hsn-btn--ghost" onClick={loadData} type="button">
-          ↻ Refresh
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="hsn-btn hsn-btn--ghost" onClick={handleRunBatch} disabled={batchJobTriggering} type="button" style={{ border: '1px solid var(--hsn-primary)', color: 'var(--hsn-primary)' }}>
+            {batchJobTriggering ? 'Triggering...' : '▶ Run Batch Pipeline'}
+          </button>
+          <button className="hsn-btn hsn-btn--ghost" onClick={loadData} type="button">
+            ↻ Refresh
+          </button>
+        </div>
       </div>
 
       {/* ── Filter Bar ── */}
