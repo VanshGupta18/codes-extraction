@@ -4,10 +4,14 @@ import httpx
 
 CAP_BASE_URL = os.environ.get("CAP_BASE_URL", "http://localhost:4004/odata/v4/hsn")
 
-async def get_all(entity: str, params: dict | None = None) -> list[dict]:
-    query = {"$top": 20000, **(params or {})}
-    async with httpx.AsyncClient(base_url=CAP_BASE_URL) as client:
+async def get_all(entity: str, params: dict | None = None, *, top: int | None = 20000) -> list[dict]:
+    query = dict(params or {})
+    if top is not None and "$top" not in query:
+        query["$top"] = top
+    async with httpx.AsyncClient(base_url=CAP_BASE_URL, timeout=120) as client:
         resp = await client.get(f"/{entity}", params=query)
+    if not resp.is_success:
+        print(f"CAP GET /{entity} failed ({resp.status_code}): {resp.text[:300]}")
     resp.raise_for_status()
     return resp.json().get("value", [])
 
@@ -150,11 +154,20 @@ async def save_candidate_suggestions(material_number: str, candidates: list[dict
 
 async def get_pending_material_numbers() -> list[str]:
     """Legacy queue flags pending work; MARA confirms the material exists in master data."""
-    legacy_rows = await get_all("ZMM_MAT_LEGACY", {
-        "$filter": "HSN eq '9999'",
-        "$select": "Legacy_Serial_number,Material,HSN",
-    })
     mara_numbers = {row["MaterialNumber"] for row in await get_mara()}
+
+    # Match UI query — no $top (HANA 400 when $top=20000 combined with $filter on legacy)
+    try:
+        legacy_rows = await get_all("ZMM_MAT_LEGACY", {
+            "$filter": "HSN eq '9999'",
+            "$select": "Legacy_Serial_number,Material",
+        }, top=None)
+    except httpx.HTTPStatusError:
+        legacy_rows = [
+            r for r in await get_all("ZMM_MAT_LEGACY", top=5000)
+            if r.get("HSN") == "9999"
+        ]
+
     pending = list(dict.fromkeys(
         row["Material"] for row in legacy_rows
         if row.get("Material") and row["Material"] in mara_numbers
