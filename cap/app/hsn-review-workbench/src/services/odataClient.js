@@ -109,7 +109,30 @@ export async function bulkApprove(materialIds) {
   return { success: true, count: materialIds.length };
 }
 
+export async function isPendingLegacyMaterial(materialNumber) {
+  const enc = encodeURIComponent(materialNumber.trim());
+  const res = await fetch(
+    `${ODATA}/ZMM_MAT_LEGACY?$filter=Material eq '${enc}' and HSN eq '9999'&$select=Material&$top=1`,
+  );
+  if (!res.ok) return false;
+  const json = await res.json();
+  return (json.value?.length ?? 0) > 0;
+}
+
+function parseODataError(body) {
+  try {
+    const json = JSON.parse(body);
+    return json.error?.message || json.error?.details?.[0]?.message || body;
+  } catch {
+    return body;
+  }
+}
+
 export async function addLegacyMaterial(materialData) {
+  const payload = Object.fromEntries(
+    Object.entries(materialData).filter(([, value]) => String(value ?? '').trim() !== ''),
+  );
+
   const csrf = await fetchCsrfToken();
   const headers = { 'Content-Type': 'application/json' };
   if (csrf) headers['X-CSRF-Token'] = csrf;
@@ -118,10 +141,10 @@ export async function addLegacyMaterial(materialData) {
     method: 'POST',
     credentials: 'include',
     headers,
-    body: JSON.stringify(materialData),
+    body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(`OData error: ${await response.text()}`);
+    throw new Error(parseODataError(await response.text()));
   }
   return response.json();
 }
@@ -160,9 +183,4 @@ export async function fetchMaterialDetails(materialId) {
 
 export async function triggerBatchPipeline() {
   return lookupPost('/trigger_batch');
-}
-
-export async function rankMaterial(materialId) {
-  await lookupPost(`/rank/${encodeURIComponent(materialId)}`);
-  return { success: true };
 }

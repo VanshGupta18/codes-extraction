@@ -940,3 +940,104 @@ body {
 /* ── Utility ───────────────────────────────────────────────── */
 .hsn-text-muted { color: var(--hsn-on-surface-variant); }
 .hsn-text-code  { font-family: var(--hsn-font-code); }
+
+/* ── Ingestion form ────────────────────────────────────────── */
+.hsn-ingestion {
+  padding: var(--hsn-container-padding);
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.hsn-ingestion__header {
+  margin-bottom: 1.25rem;
+}
+
+.hsn-ingestion__header p {
+  margin: 0.5rem 0 0;
+  color: var(--hsn-on-surface-variant);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.hsn-ingestion__system {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.hsn-ingestion__strip {
+  margin-bottom: 1rem;
+}
+
+.hsn-ingestion__link {
+  color: inherit;
+  font-weight: 600;
+}
+
+.hsn-ingestion__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hsn-ingestion__section {
+  background: var(--hsn-surface-container-lowest);
+  border: 1px solid var(--hsn-outline-variant);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.hsn-ingestion__hint {
+  margin: 0.25rem 0 1rem;
+  font-size: 13px;
+  color: var(--hsn-on-surface-variant);
+}
+
+.hsn-ingestion__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.hsn-ingestion-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hsn-ingestion-field--wide {
+  grid-column: 1 / -1;
+}
+
+.hsn-ingestion-field--error ui5-input,
+.hsn-ingestion-field--error ui5-select {
+  --sapField_InvalidColor: var(--hsn-error);
+}
+
+.hsn-ingestion-error {
+  font-size: 12px;
+  color: var(--hsn-error);
+}
+
+.hsn-ingestion__panel-body {
+  padding: 1rem;
+}
+
+.hsn-ingestion__divider {
+  border: none;
+  border-top: 1px solid var(--hsn-outline-variant);
+  margin: 0.75rem 0;
+}
+
+.hsn-ingestion__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 1rem 0 0;
+  position: sticky;
+  bottom: 0;
+  background: var(--hsn-surface);
+  border-top: 1px solid var(--hsn-outline-variant);
+  margin-top: 0.5rem;
+}

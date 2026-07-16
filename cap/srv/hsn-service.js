@@ -19,7 +19,37 @@ async function callLookup(path, options = {}) {
 }
 
 module.exports = cds.service.impl(function () {
-  const { CandidateSuggestions } = cds.entities('hsn');
+  const { CandidateSuggestions, ZMM_MAT_LEGACY } = cds.entities('hsn');
+
+  this.before('CREATE', 'ZMM_MAT_LEGACY', async (req) => {
+    const row = req.data;
+    row.Material = (row.Material || '').trim();
+    row.Material_Description = (row.Material_Description || '').trim();
+    row.Material_Type = (row.Material_Type || '').trim();
+    row.Material_Group = (row.Material_Group || '').trim();
+
+    if (!row.Material) return req.reject(400, 'Material is required');
+    if (!row.Material_Description) return req.reject(400, 'Material description is required');
+    if (!row.Material_Type) return req.reject(400, 'Material type is required');
+    if (!row.Material_Group) return req.reject(400, 'Material group is required');
+
+    row.Legacy_Serial_number = row.Legacy_Serial_number || `LEGACY-${Date.now()}`;
+    row.HSN = '9999';
+    row.Effective_Till_Date = row.Effective_Till_Date || '9999-12-31';
+    row.Numerator = row.Numerator || '1';
+    row.Denominator = row.Denominator || '1';
+    if (!(row.Material_Description_1 || '').trim()) {
+      row.Material_Description_1 = row.Material_Description;
+    }
+
+    const pending = await SELECT.one.from(ZMM_MAT_LEGACY).where({
+      Material: row.Material,
+      HSN: '9999',
+    });
+    if (pending) {
+      return req.reject(409, `Material ${row.Material} is already pending classification`);
+    }
+  });
 
   this.on('replaceCandidateSuggestions', async (req) => {
     const { materialNumber, candidatesJson } = req.data;

@@ -7,7 +7,6 @@
   "dependencies": {
     "@cap-js/hana": "^3.0.1",
     "@sap/cds": "^10",
-    "@sap/xb-msg-amqp-v100": "^0.9.58",
     "@sap/xssec": "^4.13.3",
     "passport": "^0.7.0"
   },

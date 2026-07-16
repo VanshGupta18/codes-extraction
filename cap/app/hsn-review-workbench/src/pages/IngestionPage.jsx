@@ -1,182 +1,256 @@
 import { Fragment, useState } from 'react';
-import { Button, Input, Label, Title, Panel } from '@ui5/webcomponents-react';
-import { addLegacyMaterial, rankMaterial } from '../services/odataClient';
+import { Link } from 'react-router-dom';
+import {
+  Button,
+  Input,
+  Label,
+  MessageStrip,
+  Option,
+  Panel,
+  Select,
+  Tag,
+  Title,
+} from '@ui5/webcomponents-react';
+import { addLegacyMaterial, isPendingLegacyMaterial } from '../services/odataClient';
 
-const FIELD_DEFAULTS = { Material_Type: 'FERT', HSN: '9999' };
+const MATERIAL_TYPES = ['ZICM', 'ZOES', 'ZICN', 'ZDCL'];
+const BASE_UNITS = ['', 'NO', 'EA', 'ST', 'KG', 'MM', 'LT'];
 
-const SECTIONS = [
-  {
-    title: '1. Primary Identification',
-    fields: [
-      ['Material', 'Material Number', true],
-      ['Material_Description', 'Description', true],
-      ['Material_Description_1', 'Description 1'],
-      ['Old_material_number', 'Old Material Number'],
-      ['Manufacturer_Part_No_', 'Manufacturer Part No'],
-    ],
-  },
-  {
-    title: '2. Categorization & Characteristics',
-    fields: [
-      ['Material_Type', 'Material Type (e.g. FERT)'],
-      ['Material_Group', 'Material Group'],
-      ['Material_Group_3', 'Material Group 3'],
-      ['Material_Group_4', 'Material Group 4'],
-      ['Item_Plan_Type', 'Item Plan Type'],
-    ],
-  },
-  {
-    title: '3. Organizational & Plant Data',
-    fields: [
-      ['ZZ1_MM_RP_PLT', 'Plant (ZZ1_MM_RP_PLT)'],
-      ['Plant_type_Legacy', 'Plant Type Legacy'],
-      ['Legacy_Company_Code', 'Legacy Company Code'],
-      ['Storage_Location_Extend', 'Storage Location'],
-      ['Loading_Group', 'Loading Group'],
-      ['Valuation_Class', 'Valuation Class'],
-    ],
-  },
-  {
-    title: '4. Lifecycle & Flags',
-    fields: [
-      ['Valid_From', 'Valid From (YYYY-MM-DD)'],
-      ['Effective_Till_Date', 'Effective Till (YYYY-MM-DD)'],
-      ['DOMESTIC_FLAG', 'Domestic Flag'],
-      ['NO_STOCK_CHECK_IND', 'No Stock Check Ind'],
-      ['Process_Flag', 'Process Flag'],
-    ],
-  },
-  {
-    title: '5. Base Units & Weights',
-    fields: [
-      ['Base_Unit_of_Measure', 'Base Unit of Measure'],
-      ['Unit_of_Weight', 'Unit of Weight'],
-      ['Volume_Unit', 'Volume Unit'],
-    ],
-  },
-  {
-    title: '6. Advanced Unit Conversions',
-    collapsed: true,
-    fieldGroups: [
-      [['Numerator', 'Numerator (Base)'], ['Denominator', 'Denominator (Base)'], ['Display_Unit_Measure', 'Display Unit Measure']],
-      [['Base_Unit_of_Measure_1', 'Base Unit 1'], ['Numerator_1', 'Numerator 1'], ['Denominator_1', 'Denominator 1'], ['Display_Unit_Measure_1', 'Display Unit 1']],
-      [['Base_Unit_of_Measure_2', 'Base Unit 2'], ['Numerator_2', 'Numerator 2'], ['Denominator_2', 'Denominator 2'], ['Display_Unit_Measure_2', 'Display Unit 2']],
-      [['Numerator_3', 'Numerator 3'], ['Denominator_3', 'Denominator 3'], ['Display_Unit_Measure_3', 'Display Unit 3']],
-      [['Numerator_4', 'Numerator 4'], ['Denominator_4', 'Denominator 4'], ['Display_Unit_Measure_4', 'Display Unit 4']],
-      [['Numerator_5', 'Numerator 5'], ['Denominator_5', 'Denominator 5']],
-    ],
-  },
-  {
-    title: '7. Miscellaneous',
-    fields: [
-      ['Legacy_Field_Value', 'Legacy Field Value'],
-      ['POTXT', 'POTXT'],
-    ],
-  },
+const ESSENTIAL_FIELDS = [
+  { key: 'Material', label: 'Material number', required: true },
+  { key: 'Material_Description', label: 'Description', required: true, wide: true },
+  { key: 'Material_Type', label: 'Material type', required: true, select: 'materialType' },
+  { key: 'Material_Group', label: 'Material group', required: true },
+  { key: 'Legacy_Company_Code', label: 'Company code' },
+  { key: 'ZZ1_MM_RP_PLT', label: 'Plant' },
+  { key: 'Manufacturer_Part_No_', label: 'Manufacturer part no.' },
+  { key: 'Old_material_number', label: 'Old material number' },
+  { key: 'Legacy_Field_Value', label: 'Base unit', select: 'baseUnit' },
 ];
 
-const PANEL_BODY = { display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' };
-const GROUP_DIVIDER = { width: '100%', height: '1px', background: '#ccc', margin: '0.5rem 0' };
+const MORE_FIELDS = [
+  ['Material_Description_1', 'Description 1 (override)'],
+  ['Process_Flag', 'Process flag'],
+  ['Valuation_Class', 'Valuation class'],
+  ['POTXT', 'POTXT'],
+  ['Item_Plan_Type', 'Item plan type'],
+  ['Storage_Location_Extend', 'Storage location'],
+  ['Plant_type_Legacy', 'Plant type legacy'],
+  ['Loading_Group', 'Loading group'],
+  ['Material_Group_3', 'Material group 3'],
+  ['Material_Group_4', 'Material group 4'],
+  ['Valid_From', 'Valid from (YYYY-MM-DD)'],
+  ['DOMESTIC_FLAG', 'Domestic flag'],
+  ['NO_STOCK_CHECK_IND', 'No stock check'],
+];
 
-const INITIAL_STATE = {
-  ...Object.fromEntries(
-    SECTIONS.flatMap(({ fields, fieldGroups }) =>
-      (fields ?? fieldGroups.flat()).map(([key]) => [key, FIELD_DEFAULTS[key] ?? ''])
-    )
-  ),
-  HSN: '9999',
-};
+const UNIT_FIELDS = [
+  ['Base_Unit_of_Measure', 'Base unit of measure'],
+  ['Unit_of_Weight', 'Unit of weight'],
+  ['Volume_Unit', 'Volume unit'],
+  ['Display_Unit_Measure', 'Display unit'],
+];
+
+const ADVANCED_GROUPS = [
+  [['Numerator_1', 'Numerator 1'], ['Denominator_1', 'Denominator 1'], ['Display_Unit_Measure_1', 'Display unit 1'], ['Base_Unit_of_Measure_1', 'Base unit 1']],
+  [['Numerator_2', 'Numerator 2'], ['Denominator_2', 'Denominator 2'], ['Display_Unit_Measure_2', 'Display unit 2'], ['Base_Unit_of_Measure_2', 'Base unit 2']],
+  [['Numerator_3', 'Numerator 3'], ['Denominator_3', 'Denominator 3'], ['Display_Unit_Measure_3', 'Display unit 3']],
+  [['Numerator_4', 'Numerator 4'], ['Denominator_4', 'Denominator 4'], ['Display_Unit_Measure_4', 'Display unit 4']],
+  [['Numerator_5', 'Numerator 5'], ['Denominator_5', 'Denominator 5']],
+];
+
+const ALL_KEYS = [
+  ...ESSENTIAL_FIELDS.map((f) => f.key),
+  ...MORE_FIELDS.map(([k]) => k),
+  ...UNIT_FIELDS.map(([k]) => k),
+  ...ADVANCED_GROUPS.flat().map(([k]) => k),
+];
+
+const INITIAL_STATE = Object.fromEntries(
+  ALL_KEYS.map((key) => [key, key === 'Material_Type' ? 'ZICM' : '']),
+);
+
+function fieldClass(errors, key, wide = false) {
+  const base = errors[key] ? 'hsn-ingestion-field hsn-ingestion-field--error' : 'hsn-ingestion-field';
+  return wide ? `${base} hsn-ingestion-field--wide` : base;
+}
 
 export default function IngestionPage() {
   const [formData, setFormData] = useState(INITIAL_STATE);
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(null);
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const validate = async () => {
+    const next = {};
+    for (const { key, required } of ESSENTIAL_FIELDS) {
+      if (required && !(formData[key] || '').trim()) {
+        next[key] = 'Required';
+      }
+    }
+    const material = formData.Material.trim();
+    if (material && !next.Material) {
+      const pending = await isPendingLegacyMaterial(material);
+      if (pending) next.Material = 'Already pending classification (HSN 9999)';
+    }
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.Material || !formData.Material_Description) {
-      setMessage('Error: Material Number and Description are required.');
-      return;
-    }
+    setMessage(null);
+    if (!(await validate())) return;
 
     setLoading(true);
-    setMessage('');
     try {
-      await addLegacyMaterial({
-        ...formData,
-        Legacy_Serial_number: `LEGACY-${Date.now()}`
+      await addLegacyMaterial(formData);
+      setMessage({
+        type: 'success',
+        text: `Material ${formData.Material.trim()} added to the classification queue.`,
       });
-      const material = formData.Material;
-      setMessage('Success! Material added to the unclassified legacy queue.');
       setFormData(INITIAL_STATE);
-      rankMaterial(material).catch(() => {
-        /* ranking runs in background; user can also run batch pipeline */
-      });
+      setErrors({});
     } catch (err) {
-      setMessage(`Failed to add material: ${err.message}`);
+      setMessage({ type: 'error', text: err.message });
     } finally {
       setLoading(false);
     }
   };
 
-  const renderField = (field, label, required = false) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: '1 1 calc(33.333% - 1rem)', minWidth: '200px' }}>
-      <Label required={required}>{label || field}</Label>
+  const renderTextField = (key, label, required = false, wide = false) => (
+    <div key={key} className={fieldClass(errors, key, wide)}>
+      <Label required={required}>{label}</Label>
       <Input
-        value={formData[field]}
-        onInput={(e) => handleChange(field, e.target.value)}
+        value={formData[key]}
+        onInput={(ev) => handleChange(key, ev.target.value)}
         style={{ width: '100%' }}
       />
+      {errors[key] && <span className="hsn-ingestion-error">{errors[key]}</span>}
     </div>
   );
 
-  const renderSectionFields = (section) => {
-    if (section.fieldGroups) {
-      return section.fieldGroups.map((group, i) => (
-        <Fragment key={i}>
-          {i > 0 && <div style={GROUP_DIVIDER} />}
-          {group.map(([field, label, required]) => renderField(field, label, required))}
-        </Fragment>
-      ));
+  const renderSelect = (key, label, options, required = false) => (
+    <div key={key} className={fieldClass(errors, key)}>
+      <Label required={required}>{label}</Label>
+      <Select
+        onChange={(ev) => handleChange(key, ev.detail.selectedOption?.value ?? '')}
+        style={{ width: '100%' }}
+      >
+        {options.map((opt) => (
+          <Option key={opt || 'empty'} value={opt} selected={formData[key] === opt}>
+            {opt || '—'}
+          </Option>
+        ))}
+      </Select>
+      {errors[key] && <span className="hsn-ingestion-error">{errors[key]}</span>}
+    </div>
+  );
+
+  const renderEssential = (field) => {
+    if (field.select === 'materialType') {
+      return renderSelect(field.key, field.label, MATERIAL_TYPES, field.required);
     }
-    return section.fields.map(([field, label, required]) => renderField(field, label, required));
+    if (field.select === 'baseUnit') {
+      return renderSelect(field.key, field.label, BASE_UNITS, field.required);
+    }
+    return renderTextField(field.key, field.label, field.required, field.wide);
   };
 
-  const isError = /^(Error|Failed)/.test(message);
-
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', background: 'var(--hsn-surface)' }}>
-      <Title level="H2" style={{ marginBottom: '0.5rem', color: 'var(--hsn-on-surface)' }}>Ingest Legacy Material</Title>
-      <p style={{ color: 'var(--hsn-on-surface-variant)', marginBottom: '2rem' }}>
-        Complete the full 46-field legacy form. This item will be ingested into the `ZMM_MAT_LEGACY` table with a dummy HSN of 9999 for AI review.
-      </p>
+    <div className="hsn-ingestion">
+      <header className="hsn-ingestion__header">
+        <Title level="H2">Add material to classification queue</Title>
+        <p>
+          Saves to <code>ZMM_MAT_LEGACY</code> with dummy HSN. Batch lookup uses MARA/MAKT and the
+          government tariff master to suggest real codes for review.
+        </p>
+      </header>
+
+      <div className="hsn-ingestion__system" aria-label="System-assigned values">
+        <Tag design="Set2" colorScheme="6">HSN 9999</Tag>
+        <Tag design="Set2" colorScheme="6">Effective till open</Tag>
+        <Tag design="Set2" colorScheme="6">Serial assigned on save</Tag>
+      </div>
 
       {message && (
-        <div style={{
-          marginBottom: '1.5rem', padding: '1rem', borderRadius: '4px', fontWeight: 'bold',
-          backgroundColor: isError ? 'var(--hsn-error-container)' : '#dcfce7',
-          color: isError ? 'var(--hsn-on-error-container)' : '#166534',
-        }}>
-          {message}
-        </div>
+        <MessageStrip
+          design={message.type === 'error' ? 'Negative' : 'Positive'}
+          className="hsn-ingestion__strip"
+          onClose={() => setMessage(null)}
+        >
+          {message.text}
+          {message.type === 'success' && (
+            <>
+              {' '}
+              <Link to="/review" className="hsn-ingestion__link">Open Review Workbench</Link>
+            </>
+          )}
+        </MessageStrip>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        {SECTIONS.map((section) => (
-          <Panel key={section.title} headerText={section.title} collapsed={section.collapsed}>
-            <div style={PANEL_BODY}>{renderSectionFields(section)}</div>
-          </Panel>
-        ))}
+      <form onSubmit={handleSubmit} className="hsn-ingestion__form">
+        <section className="hsn-ingestion__section">
+          <Title level="H4">Essentials</Title>
+          <p className="hsn-ingestion__hint">
+            Description is used for HSN matching. Only these fields are required to queue a material.
+          </p>
+          <div className="hsn-ingestion__grid">
+            {ESSENTIAL_FIELDS.map(renderEssential)}
+          </div>
+        </section>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem' }}>
-          <Button design="Emphasized" type="Submit" disabled={loading} style={{ width: '200px' }}>
-            {loading ? 'Ingesting...' : 'Ingest Material'}
+        <Panel headerText="More details (optional)" collapsed>
+          <div className="hsn-ingestion__grid hsn-ingestion__panel-body">
+            {MORE_FIELDS.map(([key, label]) => renderTextField(key, label))}
+          </div>
+        </Panel>
+
+        <Panel headerText="Units (optional)" collapsed>
+          <div className="hsn-ingestion__grid hsn-ingestion__panel-body">
+            {UNIT_FIELDS.map(([key, label]) => renderTextField(key, label))}
+          </div>
+        </Panel>
+
+        <Panel headerText="Advanced unit conversions (rare)" collapsed>
+          <div className="hsn-ingestion__panel-body">
+            {ADVANCED_GROUPS.map((group, i) => (
+              <Fragment key={i}>
+                {i > 0 && <hr className="hsn-ingestion__divider" />}
+                <div className="hsn-ingestion__grid">
+                  {group.map(([key, label]) => renderTextField(key, label))}
+                </div>
+              </Fragment>
+            ))}
+          </div>
+        </Panel>
+
+        <footer className="hsn-ingestion__footer">
+          <Button
+            design="Transparent"
+            type="Button"
+            onClick={() => {
+              setFormData(INITIAL_STATE);
+              setErrors({});
+              setMessage(null);
+            }}
+          >
+            Clear
           </Button>
-        </div>
+          <Button design="Emphasized" type="Submit" disabled={loading}>
+            {loading ? 'Saving…' : 'Add to classification queue'}
+          </Button>
+        </footer>
       </form>
     </div>
   );

@@ -22,9 +22,4 @@ service HSNService {
     candidatesJson : LargeString
   ) returns Integer;
 
-  event TariffApproved {
-    MaterialNumber: String;
-    Description: String;
-    ApprovedCode: String;
-  }
 }

@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 import cap_client
 import govt_lookup
-import aicore_client
+import embedding_client
 
 app = FastAPI(title="HSN Suggestion Service")
 _index: govt_lookup.Index | None = None
@@ -94,13 +94,13 @@ async def health():
             "documents": len(_index.rows),
             "hsn_codes": len(_index._hsn_codes),
             "sac_codes": len(_index._sac_codes),
-            "embedding_model": aicore_client.EMBEDDING_MODEL_NAME,
+            "embedding_model": embedding_client.EMBEDDING_MODEL_NAME,
             "embeddings": (
                 "error"
-                if aicore_client._embedding_error
-                else "ready" if aicore_client._embedding_model else "lazy"
+                if embedding_client._error
+                else "ready" if embedding_client._model else "lazy"
             ),
-            "embedding_cache_entries": len(aicore_client._embedding_cache),
+            "embedding_cache_entries": len(embedding_client._cache),
         }
     if _index_error:
         return {"status": "starting", "lastError": _index_error}
@@ -133,7 +133,7 @@ async def _rank_material(material_number: str) -> dict:
     # in one cached request, so startup remains cheap and BTP-safe.
     shortlist = _index.shortlist_indices(description, tariff=tariff)
     texts = [description] + [_index.rows[index]["Description"] for index in shortlist]
-    embeddings = await aicore_client.get_embeddings(texts)
+    embeddings = await embedding_client.get_embeddings(texts)
     query_embedding = embeddings[0]
     _index.set_embeddings(shortlist, embeddings[1:])
 
@@ -214,7 +214,7 @@ async def approve(req: ApproveRequest):
     await cap_client.approve_classification(req.materialNumber, description, req.chosenCode)
 
     # Hot-reload: embed approved description and extend in-memory index
-    embedding = await aicore_client.get_embedding(description)
+    embedding = await embedding_client.get_embedding(description)
     _index.add_document(
         {
             "MaterialNumber": req.materialNumber,

@@ -1,9 +1,0 @@
-{
-    "emname": "hsn-event-mesh-dev",
-    "namespace": "hsn/lookup/events",
-    "options": {
-        "management": true,
-        "messagingrest": true,
-        "messaging": true
-    }
-}

@@ -20,7 +20,6 @@ modules:
     path: cap
     requires:
       - name: hsn-hana-db
-      - name: hsn-event-mesh
       - name: hsn-xsuaa
       - name: hsn-lookup-api
         properties:
@@ -55,7 +54,6 @@ modules:
     path: lookup-service
     requires:
       - name: hsn-hana-db
-      - name: hsn-event-mesh
       - name: hsn-xsuaa
       - name: srv-api
         properties:
@@ -103,14 +101,6 @@ resources:
     parameters:
       service: hana
       service-plan: hdi-shared
-
-  # ─── SAP Event Mesh ─────────────────────────────────────────────────────
-  - name: hsn-event-mesh
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: enterprise-messaging
-      service-plan: default
-      path: ./event-mesh.json
 
   # ─── SAP XSUAA (Authentication) ─────────────────────────────────────────
   - name: hsn-xsuaa
