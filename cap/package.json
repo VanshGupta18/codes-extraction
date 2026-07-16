@@ -5,8 +5,8 @@
   "private": true,
   "license": "UNLICENSED",
   "dependencies": {
+    "@cap-js/hana": "^3.0.1",
     "@sap/cds": "^10",
-    "@sap/cds-hana": "^2.1.0",
     "@sap/xb-msg-amqp-v100": "^0.9.58"
   },
   "devDependencies": {
@@ -15,5 +15,12 @@
   },
   "scripts": {
     "start": "cds-serve"
+  },
+  "cds": {
+    "requires": {
+      "db": {
+        "kind": "hana"
+      }
+    }
   }
 }
