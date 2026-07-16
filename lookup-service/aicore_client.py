@@ -1,8 +1,8 @@
 import os
-import json
 import asyncio
 import httpx
 import numpy as np
+from fastembed import TextEmbedding
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -11,34 +11,21 @@ TOKEN_URL = os.environ.get("TOKEN_URL", "")
 CLIENT_ID = os.environ.get("CLIENT_ID", "")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET", "")
 MODEL_BASE_URL = os.environ.get("MODEL_BASE_URL", "")
-EMBEDDING_MODEL_BASE_URL = os.environ.get("EMBEDDING_MODEL_BASE_URL", "")
+EMBEDDING_MODEL_NAME = os.environ.get(
+    "EMBEDDING_MODEL_NAME", "BAAI/bge-small-en-v1.5"
+)
+EMBEDDING_CACHE_DIR = os.environ.get(
+    "EMBEDDING_CACHE_DIR",
+    os.path.join(os.environ.get("TMPDIR", "/tmp"), "fastembed-cache"),
+)
 
 _token: str | None = None
 _api_failed = False
 _client = httpx.AsyncClient()
 _token_lock = asyncio.Lock()
-
-_cache_dir = os.environ.get("EMBEDDINGS_CACHE_DIR") or os.path.join(os.environ.get("TMPDIR", "/tmp"), "hsn-lookup")
-os.makedirs(_cache_dir, exist_ok=True)
-CACHE_FILE = os.path.join(_cache_dir, "embeddings_cache.json")
-
-def load_cache():
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, "r") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
-
-def save_cache():
-    try:
-        with open(CACHE_FILE, "w") as f:
-            json.dump(_embeddings_cache, f)
-    except OSError as exc:
-        print(f"Warning: could not persist embedding cache: {exc}")
-
-_embeddings_cache = load_cache()
+_embedding_model: TextEmbedding | None = None
+_embedding_error: str | None = None
+_embedding_lock = asyncio.Lock()
 
 async def _get_token() -> str:
     global _token, _api_failed
@@ -64,54 +51,42 @@ async def _get_token() -> str:
         return ""
 
 async def get_embedding(text: str) -> np.ndarray:
-    """Return one cached/remote embedding, or zeros for BM25-only fallback."""
+    """Return one local ONNX embedding, or an empty vector for BM25 fallback."""
     return (await get_embeddings([text]))[0]
 
 
 async def get_embeddings(texts: list[str]) -> list[np.ndarray]:
-    """Embed uncached texts in one API request and preserve input ordering."""
-    global _api_failed
+    """Embed a batch locally with FastEmbed's ONNX runtime."""
+    global _embedding_model, _embedding_error
+    if not texts:
+        return []
 
-    results: list[np.ndarray | None] = [None] * len(texts)
-    missing: list[tuple[int, str]] = []
-    for index, text in enumerate(texts):
-        if not text:
-            results[index] = np.zeros(1536)
-        elif text in _embeddings_cache:
-            results[index] = np.array(_embeddings_cache[text], dtype=np.float32)
-        else:
-            missing.append((index, text))
+    if _embedding_model is None and _embedding_error is None:
+        async with _embedding_lock:
+            if _embedding_model is None and _embedding_error is None:
+                try:
+                    _embedding_model = await asyncio.to_thread(
+                        TextEmbedding,
+                        model_name=EMBEDDING_MODEL_NAME,
+                        cache_dir=EMBEDDING_CACHE_DIR,
+                    )
+                    print(f"FastEmbed ready: {EMBEDDING_MODEL_NAME}")
+                except Exception as exc:
+                    _embedding_error = str(exc)
+                    print(f"FastEmbed unavailable; using BM25 only: {exc}")
 
-    token = await _get_token() if missing else ""
-    if missing and token and not _api_failed and EMBEDDING_MODEL_BASE_URL:
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "AI-Resource-Group": "default",
-            "Content-Type": "application/json",
-        }
-        url = f"{EMBEDDING_MODEL_BASE_URL}/embeddings?api-version=2023-05-15"
-        payload = {
-            "input": [text for _, text in missing],
-            "model": "text-embedding-ada-002",
-        }
-        try:
-            resp = await _client.post(url, headers=headers, json=payload)
-            if resp.status_code == 200:
-                data = sorted(resp.json()["data"], key=lambda item: item.get("index", 0))
-                for (result_index, text), item in zip(missing, data):
-                    vector = np.array(item["embedding"], dtype=np.float32)
-                    results[result_index] = vector
-                    _embeddings_cache[text] = vector.tolist()
-                save_cache()
-            else:
-                _api_failed = True
-        except Exception:
-            _api_failed = True
+    if _embedding_model is None:
+        return [np.empty(0, dtype=np.float32) for _ in texts]
 
-    return [
-        result if result is not None else np.zeros(1536)
-        for result in results
-    ]
+    try:
+        vectors = await asyncio.to_thread(
+            lambda: list(_embedding_model.embed(texts, batch_size=64))
+        )
+        return [np.asarray(vector, dtype=np.float32) for vector in vectors]
+    except Exception as exc:
+        _embedding_error = str(exc)
+        print(f"FastEmbed failed; using BM25 only: {exc}")
+        return [np.empty(0, dtype=np.float32) for _ in texts]
 
 
 async def adjudicate(description: str, top_candidates: list[dict]) -> str | None:

@@ -34,10 +34,8 @@ class Index:
         else:
             self.bm25 = None
 
-        # Embedding matrix: zero-filled for govt rows; filled on approve
-        embeddings = [r.get("Embedding", np.zeros(1536)) for r in self.rows]
-        self._embeddings_matrix = np.array(embeddings, dtype=np.float32)
-        self._normalize_embeddings()
+        # Only shortlisted rows are embedded; avoid a large zero-filled matrix.
+        self._embeddings: dict[int, np.ndarray] = {}
 
         # Precompute valid code sets for fast validation
         self._build_code_sets()
@@ -89,8 +87,8 @@ class Index:
                 if shortlist_bm25_max > 0
                 else 0.0
             )
-            if has_embedding:
-                row_emb = self._embeddings_norm[idx]
+            row_emb = self._embeddings.get(idx)
+            if has_embedding and row_emb is not None and row_emb.shape == q_unit.shape:
                 cos = float(np.dot(row_emb, q_unit))
                 fused[idx] = _W_BM25 * bm25_norm + _W_COS * max(cos, 0.0)
             else:
@@ -146,15 +144,12 @@ class Index:
         return valid[: min(k, len(valid))]
 
     def set_embeddings(self, indices: list[int], embeddings: list) -> None:
-        """Cache remotely generated vectors in the in-memory matrix."""
-        changed = False
+        """Cache normalized vectors for shortlisted rows."""
         for index, embedding in zip(indices, embeddings):
             vector = np.asarray(embedding, dtype=np.float32)
-            if vector.shape == (1536,) and np.linalg.norm(vector) > 0:
-                self._embeddings_matrix[index] = vector
-                changed = True
-        if changed:
-            self._normalize_embeddings()
+            norm = np.linalg.norm(vector)
+            if vector.ndim == 1 and vector.size and norm > 0:
+                self._embeddings[index] = vector / norm
 
     def is_valid_code(self, code: str, material_type: str = "") -> bool:
         """Return True if code exists in the appropriate govt master."""
@@ -164,28 +159,20 @@ class Index:
         return code in self._hsn_codes
 
     def add_document(self, row: dict, embedding=None):
-        """Hot-reload: append one row to corpus and embedding matrix (called on approve)."""
+        """Hot-reload one approved row and its optional embedding."""
         self.rows.append(row)
         self._tokenized_corpus.append(tokenize(row["Description"]))
         self.bm25 = BM25Okapi(self._tokenized_corpus)
 
-        emb = np.array(embedding if embedding is not None else np.zeros(1536), dtype=np.float32)
-        emb_norm = emb / (np.linalg.norm(emb) or 1.0)
-        self._embeddings_matrix = np.vstack([self._embeddings_matrix, emb[np.newaxis]])
-        self._embeddings_norm = np.vstack([self._embeddings_norm, emb_norm[np.newaxis]])
+        if embedding is not None:
+            vector = np.asarray(embedding, dtype=np.float32)
+            norm = np.linalg.norm(vector)
+            if vector.ndim == 1 and vector.size and norm > 0:
+                self._embeddings[len(self.rows) - 1] = vector / norm
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-
-    def _normalize_embeddings(self):
-        if not self.rows:
-            self._embeddings_matrix = np.empty((0, 1536), dtype=np.float32)
-            self._embeddings_norm = np.empty((0, 1536), dtype=np.float32)
-            return
-        norms = np.linalg.norm(self._embeddings_matrix, axis=1, keepdims=True)
-        norms[norms == 0] = 1.0
-        self._embeddings_norm = self._embeddings_matrix / norms
 
     def _build_code_sets(self):
         self._hsn_codes: set = set()

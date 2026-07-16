@@ -4,3 +4,4 @@ httpx
 rank_bm25
 python-dotenv
 numpy
+fastembed

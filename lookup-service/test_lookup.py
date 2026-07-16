@@ -152,7 +152,7 @@ def test_is_valid_code():
 def test_hybrid_bm25_only_when_zero_embedding():
     """Passing an all-zero embedding should degrade to BM25-only (not crash)."""
     idx = _make_index()
-    zero_emb = np.zeros(1536)
+    zero_emb = np.zeros(384)
     results_hybrid = idx.rank("CABLE BATTERY", query_embedding=zero_emb)
     results_bm25 = idx.rank("CABLE BATTERY")
     assert results_hybrid == results_bm25, (
@@ -164,12 +164,12 @@ def test_hybrid_cosine_changes_ranking():
     """A semantic candidate can outrank the lexical leader after lazy embedding."""
     idx = _make_index()
     shortlist = idx.shortlist_indices("CABLE BATTERY")
-    query = np.zeros(1536)
+    query = np.zeros(384)
     query[0] = 1.0
     vectors = []
     semantic_code = "87088000"
     for index in shortlist:
-        vector = np.zeros(1536)
+        vector = np.zeros(384)
         vector[0 if idx.rows[index]["Code"] == semantic_code else 1] = 1.0
         vectors.append(vector)
     idx.set_embeddings(shortlist, vectors)

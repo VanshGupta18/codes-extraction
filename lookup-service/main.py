@@ -94,6 +94,12 @@ async def health():
             "documents": len(_index.rows),
             "hsn_codes": len(_index._hsn_codes),
             "sac_codes": len(_index._sac_codes),
+            "embedding_model": aicore_client.EMBEDDING_MODEL_NAME,
+            "embeddings": (
+                "error"
+                if aicore_client._embedding_error
+                else "ready" if aicore_client._embedding_model else "lazy"
+            ),
         }
     if _index_error:
         return {"status": "starting", "lastError": _index_error}
