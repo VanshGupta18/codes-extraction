@@ -13,6 +13,12 @@ export default defineConfig({
         target: 'http://localhost:4004',
         changeOrigin: true,
       },
+      // Forward /api calls to FastAPI backend
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
     },
   },
 });
