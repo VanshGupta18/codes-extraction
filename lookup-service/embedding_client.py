@@ -50,7 +50,7 @@ async def get_embeddings(texts: list[str]) -> list[np.ndarray]:
                         model_name=EMBEDDING_MODEL_NAME,
                         cache_dir=EMBEDDING_CACHE_DIR,
                     )
-                    print(f"FastEmbed ready: {EMBEDDING_MODEL_NAME}")
+                    print(f"FastEmbed ready: {EMBEDDING_MODEL_NAME}", flush=True)
                 except Exception as exc:
                     _error = str(exc)
                     print(f"FastEmbed unavailable; using BM25 only: {exc}")

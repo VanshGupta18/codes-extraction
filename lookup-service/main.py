@@ -2,11 +2,11 @@
 HSN Suggestion Service — HTTP API (rank, approve, health).
 
 Corpus embeddings are stored in HANA (TariffCorpusEmbedding).
-Batch and full index builds run via CF worker: python -m jobs.run_batch
+UI batch uses POST /trigger_batch (background). CF worker: python -m jobs.run_batch
 """
 import asyncio
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
 
 import cap_client
@@ -15,6 +15,7 @@ import ranking_core
 from ranking_core import tariff_for
 
 app = FastAPI(title="HSN Suggestion Service")
+_batch_running = False
 
 
 @app.on_event("startup")
@@ -132,12 +133,29 @@ async def approve(req: ApproveRequest):
     return {"materialNumber": req.materialNumber, "hsn": req.chosenCode}
 
 
+async def _run_batch_background() -> None:
+    global _batch_running
+    _batch_running = True
+    try:
+        await ranking_core.run_batch_job()
+    finally:
+        _batch_running = False
+
+
 @app.post("/trigger_batch")
-async def trigger_batch():
+async def trigger_batch(background_tasks: BackgroundTasks):
+    if not ranking_core.get_index():
+        raise HTTPException(
+            503,
+            ranking_core.get_index_error() or "Search index not ready — wait for /health status=ready",
+        )
+    if _batch_running:
+        return {"message": "Batch pipeline already running in background."}
+
+    background_tasks.add_task(_run_batch_background)
     return {
         "message": (
-            "Batch is not run in the API process. "
-            "Use: python -m jobs.run_batch (BAS) or "
-            "cf run-task hsn-lookup-worker --command \"python -m jobs.run_batch\""
+            "Batch pipeline started. BM25 + vector ranking runs in the background — "
+            "refresh the queue in a few moments."
         ),
     }
