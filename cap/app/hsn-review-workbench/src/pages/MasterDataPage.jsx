@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import { Label, Title, Button, FilterBar, FilterGroupItem, Input, Option, Select, Dialog } from '@ui5/webcomponents-react';
 import { fetchAllMasterData, fetchMaterialDetails } from '../services/odataClient';
 
+const PREFERRED_COLUMN_ORDER = [
+  'Legacy_Serial_number', 'Material_Type', 'Material', 'Material_Description', 'Legacy_Field_Value',
+  'Material_Group', 'Old_material_number', 'Unit_of_Weight', 'Material_Description_1', 'Volume_Unit',
+  'Denominator', 'Display_Unit_Measure', 'Numerator', 'Base_Unit_of_Measure', 'Denominator_1',
+  'Numerator_1', 'Denominator_2', 'Display_Unit_Measure_1', 'Numerator_2', 'Base_Unit_of_Measure_1',
+  'Denominator_3', 'Display_Unit_Measure_2', 'Numerator_3', 'Base_Unit_of_Measure_2', 'DOMESTIC_FLAG',
+  'NO_STOCK_CHECK_IND', 'Legacy_Company_Code', 'POTXT', 'Manufacturer_Part_No_', 'Valid_From',
+  'Loading_Group', 'Material_Group_3', 'Valuation_Class', 'ZZ1_MM_RP_PLT', 'Process_Flag',
+  'Storage_Location_Extend', 'Material_Group_4', 'Denominator_4', 'Display_Unit_Measure_3', 'Numerator_4',
+  'Denominator_5', 'Display_Unit_Measure_4', 'Numerator_5', 'Item_Plan_Type', 'Effective_Till_Date',
+  'Plant_type_Legacy', 'HSN', 'ApprovedAt'
+];
+
 export default function MasterDataPage() {
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
@@ -189,7 +202,15 @@ export default function MasterDataPage() {
                   return <p>No records found.</p>;
                 }
 
-                const columns = Object.keys(rows[0]);
+                const rawColumns = Object.keys(rows[0]);
+                const columns = rawColumns.sort((a, b) => {
+                  const idxA = PREFERRED_COLUMN_ORDER.indexOf(a);
+                  const idxB = PREFERRED_COLUMN_ORDER.indexOf(b);
+                  if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+                  if (idxA === -1) return 1;
+                  if (idxB === -1) return -1;
+                  return idxA - idxB;
+                });
 
                 return (
                   <div>
