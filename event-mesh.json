@@ -6,19 +6,19 @@
     },
     "rules": {
         "topicRules": {
-            "inbound": [
-                "hsn/lookup/events/TariffApproved"
+            "publishFilter": [
+                "${namespace}/*"
             ],
-            "outbound": [
-                "hsn/lookup/events/TariffApproved"
+            "subscribeFilter": [
+                "${namespace}/*"
             ]
         },
         "queueRules": {
-            "inbound": [
-                "hsn_lookup_queue"
+            "publishFilter": [
+                "${namespace}/*"
             ],
-            "outbound": [
-                "hsn_lookup_queue"
+            "subscribeFilter": [
+                "${namespace}/*"
             ]
         }
     },
