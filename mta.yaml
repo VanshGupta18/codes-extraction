@@ -79,26 +79,11 @@ modules:
           name: hsn-lookup-api
           url: ~{lookup-url}
           forwardAuthToken: true
-      - name: hsn-html5-runtime
     parameters:
       memory: 256M
       disk-quota: 512M
 
-  # ─── UI Deployer (pushes built React bundle to HTML5 Repo) ───────────────
-  - name: hsn-ui-deployer
-    type: com.sap.application.content
-    path: cap/app/hsn-review-workbench
-    requires:
-      - name: hsn-html5-repo
-        parameters:
-          content-target: true
-    build-parameters:
-      build-result: dist
-      requires:
-        - name: hsn-cap-srv
-          artifacts:
-            - dist/**
-          target-path: dist
+
 
 resources:
 
@@ -125,18 +110,7 @@ resources:
       service-plan: application
       path: ./xs-security.json
       config:
-        xsappname: hsn-app-${org}-${space}
+        xsappname: hsn-app-${space}-v1
         tenant-mode: dedicated
 
-  # ─── SAP HTML5 Application Repository ───────────────────────────────────
-  - name: hsn-html5-repo
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: html5-apps-repo
-      service-plan: app-host
 
-  - name: hsn-html5-runtime
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: html5-apps-repo
-      service-plan: app-runtime
