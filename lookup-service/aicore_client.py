@@ -93,10 +93,16 @@ async def get_embedding(text: str) -> np.ndarray:
         except Exception:
             _api_failed = True
 
-    # Fallback to a normalized random vector if API fails (circuit broken)
-    vec = np.random.rand(1536)
-    vec = vec / np.linalg.norm(vec)
-    return vec
+    # Return zeros — caller treats this as BM25-only degradation
+    return np.zeros(1536)
+
+async def get_embeddings(texts: list[str]) -> list[np.ndarray]:
+    """Return embeddings for a list of texts, hitting the cache for each one."""
+    results = []
+    for text in texts:
+        results.append(await get_embedding(text))
+    return results
+
 
 async def adjudicate(description: str, top_candidates: list[dict]) -> str | None:
     token = await _get_token()

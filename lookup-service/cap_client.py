@@ -134,7 +134,24 @@ async def get_candidate_suggestions(material_number: str | None = None) -> list[
     resp.raise_for_status()
     return resp.json().get("value", [])
 
+async def clear_candidate_suggestions(material_number: str) -> None:
+    """Delete all precomputed suggestions for one material before a fresh batch write."""
+    enc = quote(material_number, safe="")
+    async with httpx.AsyncClient(base_url=CAP_BASE_URL, timeout=60) as client:
+        resp = await client.get(
+            f"/CandidateSuggestions",
+            params={"$filter": f"MaterialNumber eq '{material_number}'", "$select": "MaterialNumber,Rank"},
+        )
+        if not resp.is_success:
+            return
+        for row in resp.json().get("value", []):
+            await client.delete(
+                f"/CandidateSuggestions(MaterialNumber='{enc}',Rank={row['Rank']})"
+            )
+
+
 async def save_candidate_suggestions(material_number: str, candidates: list[dict]) -> None:
+    """Persist ranked candidates. Candidates must have 'Code' and 'confidence' keys (0-1 float)."""
     enc = quote(material_number, safe="")
     async with httpx.AsyncClient(base_url=CAP_BASE_URL) as client:
         for rank, cand in enumerate(candidates, start=1):
@@ -142,7 +159,7 @@ async def save_candidate_suggestions(material_number: str, candidates: list[dict
                 "MaterialNumber": material_number,
                 "Rank": rank,
                 "CandidateCode": cand["Code"],
-                "Score": float(cand["score"]),
+                "Score": float(cand.get("confidence", cand.get("score", 0))),
             }
             resp = await client.post("/CandidateSuggestions", json=payload)
             if resp.status_code not in (200, 201, 204):
