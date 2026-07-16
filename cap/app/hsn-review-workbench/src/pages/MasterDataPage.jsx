@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react';
-import { Label, Title, Button, FilterBar, FilterGroupItem, Input, Option, Select } from '@ui5/webcomponents-react';
-import { fetchAllMasterData } from '../services/odataClient';
+import { Label, Title, Button, FilterBar, FilterGroupItem, Input, Option, Select, Dialog } from '@ui5/webcomponents-react';
+import { fetchAllMasterData, fetchMaterialDetails } from '../services/odataClient';
 
 export default function MasterDataPage() {
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState('All'); // All, Pending, Approved
+  const [filterType, setFilterType] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [selectedMaterial, setSelectedMaterial] = useState(null);
+  const [detailData, setDetailData] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -61,6 +64,20 @@ export default function MasterDataPage() {
     applyFilters(data, filterType, q);
   };
 
+  const handleRowClick = async (materialId) => {
+    setSelectedMaterial(materialId);
+    setDetailLoading(true);
+    setDetailData(null);
+    try {
+      const details = await fetchMaterialDetails(materialId);
+      setDetailData(details);
+    } catch (err) {
+      console.error('Failed to load details:', err);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   return (
     <div style={{ padding: '1rem', background: 'var(--hsn-surface)', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -98,7 +115,6 @@ export default function MasterDataPage() {
               <th>Material</th>
               <th>Description</th>
               <th>Material Group</th>
-              <th>Plant</th>
               <th>HSN Code</th>
               <th>Status</th>
             </tr>
@@ -106,24 +122,28 @@ export default function MasterDataPage() {
           <tbody>
           {loading && (
             <tr>
-              <td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>Loading master data...</td>
+              <td colSpan={5} style={{ padding: '20px', textAlign: 'center' }}>Loading master data...</td>
             </tr>
           )}
           
           {!loading && filteredData.length === 0 && (
             <tr>
-              <td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>No materials found.</td>
+              <td colSpan={5} style={{ padding: '20px', textAlign: 'center' }}>No materials found.</td>
             </tr>
           )}
 
           {!loading && filteredData.map(item => {
             const isApproved = item.HSN !== '9999';
             return (
-              <tr key={item.Legacy_Serial_number}>
+              <tr 
+                key={item.Legacy_Serial_number} 
+                onClick={() => handleRowClick(item.Material)}
+                style={{ cursor: 'pointer' }}
+                className="hsn-row--hover"
+              >
                 <td>{item.Material}</td>
                 <td>{item.Material_Description}</td>
                 <td>{item.Material_Group}</td>
-                <td>{item.ZZ1_MM_RP_PLT}</td>
                 <td>
                   <span style={{ fontWeight: 'bold', color: isApproved ? 'var(--hsn-primary)' : 'var(--hsn-on-surface-variant)' }}>
                     {item.HSN}
@@ -147,6 +167,88 @@ export default function MasterDataPage() {
           </tbody>
         </table>
       </div>
+
+      <Dialog
+        open={!!selectedMaterial}
+        onAfterClose={() => setSelectedMaterial(null)}
+        headerText={`Material Details: ${selectedMaterial}`}
+        style={{ width: '80vw', maxWidth: '1000px' }}
+      >
+        <div style={{ padding: '1rem', maxHeight: '60vh', overflow: 'auto' }}>
+          {detailLoading ? (
+            <p>Loading details...</p>
+          ) : detailData ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              
+              <div>
+                <Title level="H4" style={{ marginBottom: '1rem' }}>Approved Records ({detailData.approved.length})</Title>
+                {detailData.approved.length === 0 ? <p>No approved records.</p> : (
+                  <table className="hsn-table">
+                    <thead>
+                      <tr>
+                        <th>Serial</th>
+                        <th>Description</th>
+                        <th>Type</th>
+                        <th>Group</th>
+                        <th>Plant</th>
+                        <th>HSN</th>
+                        <th>Approved At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailData.approved.map(row => (
+                        <tr key={row.Legacy_Serial_number}>
+                          <td>{row.Legacy_Serial_number}</td>
+                          <td>{row.Material_Description}</td>
+                          <td>{row.Material_Type}</td>
+                          <td>{row.Material_Group}</td>
+                          <td>{row.ZZ1_MM_RP_PLT}</td>
+                          <td style={{ fontWeight: 'bold', color: 'var(--hsn-primary)' }}>{row.HSN}</td>
+                          <td>{new Date(row.ApprovedAt).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div>
+                <Title level="H4" style={{ marginBottom: '1rem' }}>Legacy Queue Records ({detailData.legacy.length})</Title>
+                {detailData.legacy.length === 0 ? <p>No legacy records.</p> : (
+                  <table className="hsn-table">
+                    <thead>
+                      <tr>
+                        <th>Serial</th>
+                        <th>Description</th>
+                        <th>Type</th>
+                        <th>Group</th>
+                        <th>Plant</th>
+                        <th>HSN</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailData.legacy.map(row => (
+                        <tr key={row.Legacy_Serial_number}>
+                          <td>{row.Legacy_Serial_number}</td>
+                          <td>{row.Material_Description}</td>
+                          <td>{row.Material_Type}</td>
+                          <td>{row.Material_Group}</td>
+                          <td>{row.ZZ1_MM_RP_PLT}</td>
+                          <td>{row.HSN}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+            </div>
+          ) : null}
+        </div>
+        <div slot="footer" style={{ padding: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <Button onClick={() => setSelectedMaterial(null)}>Close</Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

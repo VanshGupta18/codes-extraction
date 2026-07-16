@@ -137,6 +137,25 @@ export async function fetchAllMasterData() {
 }
 
 /**
+ * Fetch detailed raw records for a given Material from both Legacy and Approved tables
+ */
+export async function fetchMaterialDetails(materialId) {
+  const enc = encodeURIComponent(materialId);
+  const [resLeg, resApp] = await Promise.all([
+    fetch(`/odata/v4/hsn/ZMM_MAT_LEGACY?$filter=Material eq '${enc}'`),
+    fetch(`/odata/v4/hsn/ZMM_MAT_APPROVED?$filter=Material eq '${enc}'`)
+  ]);
+  
+  const legacyData = resLeg.ok ? await resLeg.json() : { value: [] };
+  const approvedData = resApp.ok ? await resApp.json() : { value: [] };
+  
+  return {
+    legacy: legacyData.value,
+    approved: approvedData.value
+  };
+}
+
+/**
  * Triggers the AI batch pipeline job in the FastAPI backend.
  */
 export async function triggerBatchPipeline() {
