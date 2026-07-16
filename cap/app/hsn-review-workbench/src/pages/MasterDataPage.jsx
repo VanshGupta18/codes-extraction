@@ -175,74 +175,48 @@ export default function MasterDataPage() {
         headerText={`Material Details: ${selectedMaterial}`}
         style={{ width: '80vw', maxWidth: '1000px' }}
       >
-        <div style={{ padding: '1rem', maxHeight: '60vh', overflow: 'auto' }}>
+        <div style={{ padding: '1rem', maxHeight: '70vh', overflow: 'auto' }}>
           {detailLoading ? (
             <p>Loading details...</p>
           ) : detailData ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-              
-              <div>
-                <Title level="H4" style={{ marginBottom: '1rem' }}>Approved Records ({detailData.approved.length})</Title>
-                {detailData.approved.length === 0 ? <p>No approved records.</p> : (
-                  <table className="hsn-table">
-                    <thead>
-                      <tr>
-                        <th>Serial</th>
-                        <th>Description</th>
-                        <th>Type</th>
-                        <th>Group</th>
-                        <th>Plant</th>
-                        <th>HSN</th>
-                        <th>Approved At</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detailData.approved.map(row => (
-                        <tr key={row.Legacy_Serial_number}>
-                          <td>{row.Legacy_Serial_number}</td>
-                          <td>{row.Material_Description}</td>
-                          <td>{row.Material_Type}</td>
-                          <td>{row.Material_Group}</td>
-                          <td>{row.ZZ1_MM_RP_PLT}</td>
-                          <td style={{ fontWeight: 'bold', color: 'var(--hsn-primary)' }}>{row.HSN}</td>
-                          <td>{new Date(row.ApprovedAt).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {(() => {
+                const isApproved = detailData.approved.length > 0;
+                const rows = isApproved ? detailData.approved : detailData.legacy;
+                const title = isApproved ? 'Approved Records' : 'Legacy Queue Records';
+                
+                if (rows.length === 0) {
+                  return <p>No records found.</p>;
+                }
 
-              <div>
-                <Title level="H4" style={{ marginBottom: '1rem' }}>Legacy Queue Records ({detailData.legacy.length})</Title>
-                {detailData.legacy.length === 0 ? <p>No legacy records.</p> : (
-                  <table className="hsn-table">
-                    <thead>
-                      <tr>
-                        <th>Serial</th>
-                        <th>Description</th>
-                        <th>Type</th>
-                        <th>Group</th>
-                        <th>Plant</th>
-                        <th>HSN</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detailData.legacy.map(row => (
-                        <tr key={row.Legacy_Serial_number}>
-                          <td>{row.Legacy_Serial_number}</td>
-                          <td>{row.Material_Description}</td>
-                          <td>{row.Material_Type}</td>
-                          <td>{row.Material_Group}</td>
-                          <td>{row.ZZ1_MM_RP_PLT}</td>
-                          <td>{row.HSN}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+                const columns = Object.keys(rows[0]);
 
+                return (
+                  <div>
+                    <Title level="H4" style={{ marginBottom: '1rem' }}>
+                      {title} ({rows.length})
+                    </Title>
+                    <div style={{ overflowX: 'auto', border: '1px solid var(--hsn-surface-container-highest)', borderRadius: '4px' }}>
+                      <table className="hsn-table" style={{ whiteSpace: 'nowrap' }}>
+                        <thead>
+                          <tr>
+                            {columns.map(col => <th key={col}>{col}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, idx) => (
+                            <tr key={row.Legacy_Serial_number || idx}>
+                              {columns.map(col => (
+                                <td key={col}>{String(row[col] ?? '')}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : null}
         </div>
