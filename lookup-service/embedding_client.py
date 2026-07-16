@@ -1,5 +1,6 @@
 import asyncio
 import os
+from collections import OrderedDict
 
 import numpy as np
 from dotenv import load_dotenv
@@ -14,11 +15,20 @@ EMBEDDING_CACHE_DIR = os.environ.get(
     "EMBEDDING_CACHE_DIR",
     os.path.join(os.environ.get("TMPDIR", "/tmp"), "fastembed-cache"),
 )
+EMBEDDING_CACHE_MAX = int(os.environ.get("EMBEDDING_CACHE_MAX", "500"))
 
 _model: TextEmbedding | None = None
 _error: str | None = None
 _lock = asyncio.Lock()
-_cache: dict[str, np.ndarray] = {}
+_cache: OrderedDict[str, np.ndarray] = OrderedDict()
+
+
+def _cache_put(text: str, vector: np.ndarray) -> None:
+    if text in _cache:
+        _cache.move_to_end(text)
+    _cache[text] = vector
+    while len(_cache) > EMBEDDING_CACHE_MAX:
+        _cache.popitem(last=False)
 
 
 async def get_embedding(text: str) -> np.ndarray:
@@ -26,7 +36,7 @@ async def get_embedding(text: str) -> np.ndarray:
 
 
 async def get_embeddings(texts: list[str]) -> list[np.ndarray]:
-    """Embed each unique text once per process with local ONNX inference."""
+    """Embed texts with LRU-bounded in-process cache (query-only in production API)."""
     global _model, _error
     if not texts:
         return []
@@ -54,12 +64,16 @@ async def get_embeddings(texts: list[str]) -> list[np.ndarray]:
             vectors = await asyncio.to_thread(
                 lambda: list(_model.embed(missing, batch_size=64))
             )
-            _cache.update({
-                text: np.asarray(vector, dtype=np.float32)
-                for text, vector in zip(missing, vectors)
-            })
+            for text, vector in zip(missing, vectors):
+                _cache_put(text, np.asarray(vector, dtype=np.float32))
         return [_cache.get(text, np.empty(0, dtype=np.float32)) for text in texts]
     except Exception as exc:
         _error = str(exc)
         print(f"FastEmbed failed; using BM25 only: {exc}")
         return [np.empty(0, dtype=np.float32) for _ in texts]
+
+
+def embedding_to_list(vector: np.ndarray) -> list[float]:
+    if vector is None or vector.size == 0:
+        return []
+    return [float(x) for x in np.asarray(vector, dtype=np.float32).tolist()]

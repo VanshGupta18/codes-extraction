@@ -1,120 +1,63 @@
 # HSN Classification Service
 
-Automates HSN/SAC (GST tariff) code classification for SAP material master data. Materials arrive in SAP with a dummy HSN (`9999`); this service suggests the top-3 most likely real HSN/SAC codes for a human to approve, and gets smarter over time as approvals accumulate.
-
-## Why this exists
-
-Today, HSN codes are assigned manually by reading each part's description — slow, inconsistent, and a GST/compliance risk while a part sits with a dummy code. See the original process write-up in this conversation's history for the full AS-IS/TO-BE narrative; this repo is the TO-BE implementation, scoped down to a runnable prototype.
+Automates HSN/SAC (GST tariff) code classification for SAP material master data. Materials with dummy HSN `9999` are ranked against the government tariff master; humans approve; approvals feed a self-learning corpus.
 
 ## Architecture
 
-Two independent services, split by responsibility:
-
 ```
-┌─────────────┐  OData (HTTP)   ┌──────────────────┐
-│  cap/       │ ◄────────────── │  lookup-service/  │
-│  (Node.js,  │                 │  (Python,          │
-│   SAP CAP)  │ ──────────────► │   FastAPI)         │
-└─────────────┘                 └──────────────────┘
-SAP connectivity                Matching + self-learning
-only — no business logic        logic lives entirely here
+Browser → AppRouter (XSUAA)
+       → CAP (OData + HANA + UI)  ←→  Lookup API (BM25 + query embed)
+       → HANA Vector Engine (TariffCorpusEmbedding, 384-dim)
+       → CF Worker (embedding index build + batch)
 ```
 
-- **`cap/`** — a CAP (Cloud Application Programming) project. Its only job is exposing SAP-shaped tables as OData: `MARA`, `MAKT`, `MARC` (material master data), the official government `GovtHSNMaster`/`GovtSACMaster` reference tables, the pending-classification queue `ZMM_MAT_LEGACY`, and the self-learning `ApprovedClassifications` table. Runs on in-memory SQLite for now (`@cap-js/sqlite`) — swapping to a real S/4HANA/HANA Cloud connection later is a `cds.requires` config change on this side only.
-- **`lookup-service/`** — a FastAPI app that owns all matching logic. It never touches a database directly; everything goes through CAP's OData API (`cap_client.py`).
+- **`cap/`** — SAP CAP on HANA Cloud: master data, queue, candidates, vector storage (not OData-exposed)
+- **`lookup-service/`** — FastAPI ranking API + CF worker jobs
+- **`cap/app/hsn-review-workbench/`** — React review UI
 
-## How matching works
+Ranking: **BM25 shortlist** (in-memory) + **HANA cosine similarity** (precomputed corpus embeddings) + approved-corpus boost.
 
-1. `GET /candidates/{materialNumber}` pulls the material's description from `MAKT`, then ranks candidate HSN/SAC codes using **BM25 keyword search** (`rank_bm25`) over a corpus made of:
-   - `ApprovedClassifications` — every previously human-approved match (highest trust, exact company vocabulary).
-   - `GovtHSNMaster` / `GovtSACMaster` — the official government tariff directory (`HSN_SAC.xlsx`), pre-processed by `scripts/convert_hsn_xlsx.py` to enrich each leaf code with its parent chapter/heading text (many leaf codes are just labeled "OTHER" — the real meaning lives one level up the hierarchy).
-   - A static abbreviation dictionary (`abbreviations.py`) expands common SAP/automotive shorthand (`RR`→`REAR`, `BRKT`→`BRACKET`, etc.) before matching, since government tariff text never uses engineering abbreviations.
-2. The endpoint always returns the **top 3 candidates** with scores — no auto-posting. A human picks one.
-3. `POST /approve` writes the chosen code back to `ZMM_MAT_LEGACY` **and** appends a new row to `ApprovedClassifications`, then rebuilds the in-memory BM25 index. This is the self-learning loop: the next near-identical description matches this exact prior approval instead of the generic government text.
+## Quick start (BAS)
 
-**Why BM25 instead of AI/vector search:** validated empirically against the real government data (see conversation history) — a lightweight, deterministic, fully-auditable keyword search plus a growing approved-examples corpus was sufficient. Vector/embedding search and LLM (AI Core) adjudication are intentionally deferred; see `Deferred` below for exactly when to add them.
-
-## Project layout
-
-```
-HSN_SAC.xlsx                    official govt HSN+SAC tariff directory (source data)
-scripts/
-  convert_hsn_xlsx.py            xlsx -> CAP seed CSVs, with ancestor-text enrichment
-cap/                             SAP connectivity layer (CAP, Node.js)
-  db/schema.cds                  entity definitions
-  db/data/*.csv                  seed data (govt tables generated; others hand-authored)
-  srv/hsn-service.cds            OData service exposing the entities
-lookup-service/                  matching + self-learning layer (Python, FastAPI)
-  abbreviations.py                engineering-shorthand expansion dictionary
-  govt_lookup.py                  BM25 index + scoring
-  cap_client.py                   OData HTTP client (talks to cap/, nothing else)
-  main.py                         FastAPI app: GET /candidates, POST /approve
-  test_lookup.py                  end-to-end verification script
-```
-
-## Running it
+See **[docs/BTP-BAS-RUNBOOK.md](docs/BTP-BAS-RUNBOOK.md)** for full BTP/BAS configuration, deploy, and operations.
 
 ```bash
-# 1. Generate the government reference tables from the source xlsx (run once, or whenever HSN_SAC.xlsx is refreshed)
-python3 scripts/convert_hsn_xlsx.py
+# 1. CAP + HANA
+cd cap && npm install && cds bind && cds deploy --to hana && cds watch
 
-# 2. Start the SAP connectivity layer
-cd cap && npm install && npm start        # OData on http://localhost:4004
+# 2. Embedding index (once)
+cd lookup-service && uv venv .venv && source .venv/bin/activate
+uv pip install -r requirements.txt
+export CAP_BASE_URL=http://localhost:4004/odata/v4/hsn
+python -m jobs.build_embedding_index
 
-# 3. Start the matching service (separate terminal)
-cd lookup-service
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --port 8000              # FastAPI on http://localhost:8000
+# 3. Lookup API
+uvicorn main:app --port 8000
 
-# 4. Verify end-to-end
-python3 lookup-service/test_lookup.py
+# 4. UI (dev)
+cd cap/app/hsn-review-workbench && npm run dev
 ```
 
-Try it manually:
+## Production (CF)
+
 ```bash
-curl http://localhost:8000/candidates/MAT-3001
-curl -X POST http://localhost:8000/approve \
-  -H "Content-Type: application/json" \
-  -d '{"materialNumber": "MAT-3002", "chosenCode": "87081090"}'
+mbt build && cf deploy mta_archives/hsn-codes-extraction_*.mtar
+cf run-task hsn-lookup-worker --command "python -m jobs.build_embedding_index"
+cf run-task hsn-lookup-worker --command "python -m jobs.run_batch"
 ```
 
-## Current status
+## Tests
 
-The core pipeline is built and verified end-to-end against real material master exports (`docs/*.xlsx`, gitignored — never committed) via `scripts/convert_hsn_xlsx.py` and `scripts/convert_custom_xlsx.py`, so the pending-classification queue (`ZMM_MAT_LEGACY`) reflects genuine materials instead of demo rows.
+```bash
+cd lookup-service && source .venv/bin/activate && python test_lookup.py
+```
 
-## Deferred (clean extension points, not built yet)
+## Key paths
 
-- **Vector/embedding hybrid search** — add as a second ranking signal alongside BM25 if top-1 suggestion approval rate plateaus low once the approved corpus has real volume.
-- **AI Core / LLM adjudication** — a narrow future role judging between an already-ranked top-3 when scores are near-tied; never a full-corpus search mechanism.
-- **Material-Group affinity boost** — `MARA.MaterialGroup` is captured but unused; once enough approvals exist, compute a group→HSN-chapter affinity bonus from approval history.
-- **Real SAP S/4HANA / HANA Cloud connectivity** — swap `@cap-js/sqlite` for a `cds.requires` destination binding on the CAP side only.
-- **Scheduled BTP job** — loop over `PENDING` `ZMM_MAT_LEGACY` records calling `GET /candidates`.
-- **Fiori/React review UI** — consumes `GET /candidates` + `POST /approve` directly.
-- **Auth/security (xsuaa, roles) and audit logging.**
-
-
-Viewed main.py:4-33
-
-Now that Phase 1 (the functional end-to-end prototype) is complete and working beautifully on your local environment, **Phase 2** is all about transforming this prototype into a production-ready enterprise application on SAP BTP. 
-
-Here is what Phase 2 would typically entail for this architecture:
-
-### 1. SAP HANA Native Vector Search
-Right now, the FastAPI Python backend holds the search index (FAISS/BM25) in system memory. In Phase 2, we would move this workload directly into the database by utilizing the **SAP HANA Cloud Native Vector Engine**. We would store the embeddings in the `MaterialEmbeddings` table as `REAL_VECTOR` data types, and run the semantic similarity search using native HANA SQL. This drastically improves scalability and reduces the memory footprint of the Python service.
-
-### 2. Live ERP Integration (S/4HANA or ECC)
-Currently, our `ZMM_MAT_LEGACY` queue was seeded using an Excel CSV file. In Phase 2, we would configure the SAP Cloud Connector and BTP Destinations to build a live bridge to your actual ERP system. 
-- The CAP service would automatically poll or receive webhooks for newly created unclassified materials.
-- When a user hits "Approve" in the React UI, the system would use a BAPI or SAP OData API to automatically write the approved HSN code back into the live `MARC`/`MARA` tables in your ERP.
-
-### 3. Full SAP BTP Deployment & Security
-We would package all three microservices and deploy them to the cloud:
-- **FastAPI Backend:** Containerized with Docker and deployed to SAP BTP Cloud Foundry or Kyma runtime.
-- **CAP Server & HANA DB:** Deployed to BTP using `mbt build` and `cf deploy`, binding it to a live SAP HANA Cloud instance.
-- **React Frontend:** Deployed to the SAP HTML5 Application Repository, accessible via SAP Build Workzone (Launchpad).
-- **Security:** We would integrate SAP XSUAA to ensure only authenticated users with specific roles (e.g., "Taxation Expert") can access the UI and approve codes.
-
-### 4. Advanced AI Agent & Analytics
-- **Deeper LLM Context:** If the AI is unsure about a material, Phase 2 could allow the LLM to dynamically fetch the Bill of Materials (BOM) or Purchase Order history from SAP to gain more context before making a tie-breaking decision.
-- **Analytics Dashboard:** Adding a dashboard to the React UI to track KPIs: AI accuracy, human override rate, and average time saved per material classification.
+| Path | Role |
+|------|------|
+| `cap/db/schema.cds` | Entities incl. `TariffCorpusEmbedding` Vector(384) |
+| `cap/srv/vector-handlers.js` | HANA cosine + bulk upsert actions |
+| `lookup-service/ranking_core.py` | BM25 + HANA fusion |
+| `lookup-service/jobs/` | Worker: index build + batch |
+| `mta.yaml` | CF modules (API 512M, worker 1536M) |

@@ -22,4 +22,20 @@ service HSNService {
     candidatesJson : LargeString
   ) returns Integer;
 
+  /** Vector index: cosine similarity for BM25 shortlist codes (JSON result array). */
+  action fetchCorpusSimilarity(
+    embeddingJson : LargeString,
+    sourcesJson   : LargeString,
+    codesJson     : LargeString
+  ) returns LargeString;
+
+  /** Bulk upsert precomputed corpus embeddings (JSON batch). */
+  action upsertTariffEmbeddings(batchJson : LargeString) returns Integer;
+
+  action countTariffEmbeddings() returns Integer;
+
+  action setSystemMetadata(id : String, value : String) returns String;
+
+  action getSystemMetadata(id : String) returns String;
+
 }

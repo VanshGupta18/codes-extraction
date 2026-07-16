@@ -161,20 +161,17 @@ def test_hybrid_bm25_only_when_zero_embedding():
 
 
 def test_hybrid_cosine_changes_ranking():
-    """A semantic candidate can outrank the lexical leader after lazy embedding."""
+    """A semantic candidate can outrank the lexical leader via HANA cosine scores."""
     idx = _make_index()
-    shortlist = idx.shortlist_indices("CABLE BATTERY")
+    semantic_code = "87088000"
+    cosine_scores = {
+        ("GOVT_HSN", semantic_code): 0.95,
+        ("GOVT_HSN", "85444200"): 0.1,
+    }
     query = np.zeros(384)
     query[0] = 1.0
-    vectors = []
-    semantic_code = "87088000"
-    for index in shortlist:
-        vector = np.zeros(384)
-        vector[0 if idx.rows[index]["Code"] == semantic_code else 1] = 1.0
-        vectors.append(vector)
-    idx.set_embeddings(shortlist, vectors)
 
-    results = idx.rank("CABLE BATTERY", query_embedding=query)
+    results = idx.rank("CABLE BATTERY", query_embedding=query, cosine_scores=cosine_scores)
     assert results[0]["Code"] == semantic_code, (
         f"cosine signal should change rank-1: {results}"
     )

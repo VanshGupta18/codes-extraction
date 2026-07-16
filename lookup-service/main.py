@@ -1,99 +1,46 @@
 """
-HSN Suggestion Service
+HSN Suggestion Service — HTTP API (rank, approve, health).
 
-Source-of-truth rules:
-  - Valid HSN/SAC codes     → GovtHSNMaster / GovtSACMaster (only codes here can be suggested)
-  - Material description    → MARA + MAKT (EN) — legacy description as last-resort fallback
-  - Work queue              → ZMM_MAT_LEGACY where HSN = '9999'
-
-Ranking: hybrid BM25 (lexical) + cosine embedding (semantic).
-  - BM25 index built at startup (fast, no API cost)
-  - Query embedding fetched per-call, cached in /tmp
-  - When AI Core unavailable, degrades gracefully to BM25-only
-Self-learning: every approved classification is hot-reloaded into the index.
+Corpus embeddings are stored in HANA (TariffCorpusEmbedding).
+Batch and full index builds run via CF worker: python -m jobs.run_batch
 """
 import asyncio
-import os
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 import cap_client
-import govt_lookup
 import embedding_client
+import ranking_core
+from ranking_core import tariff_for
 
 app = FastAPI(title="HSN Suggestion Service")
-_index: govt_lookup.Index | None = None
-_index_error: str | None = None
-_index_lock = asyncio.Lock()
-
-_SERVICE_TYPES = {"DIEN", "SERV", "ZSER"}
-
-
-def _normalize_rows(raw: list[dict], code_key: str = "Code", source: str = "GOVT") -> list[dict]:
-    rows = []
-    for row in raw:
-        code = row.get(code_key) or row.get("HSN")
-        desc = row.get("Description")
-        if code and desc:
-            normalized = {"Code": str(code), "Description": desc, "Source": source}
-            if row.get("MaterialNumber"):
-                normalized["MaterialNumber"] = row["MaterialNumber"]
-            rows.append(normalized)
-    return rows
-
-
-async def _build_index():
-    global _index, _index_error
-    print("Loading BM25 search index from CAP...")
-
-    for attempt in range(1, 31):
-        try:
-            approved_raw = await cap_client.get_approved_classifications()
-            approved = _normalize_rows(
-                [a for a in approved_raw if a.get("HSN")],
-                code_key="HSN",
-                source="APPROVED",
-            )
-            hsn_rows = _normalize_rows(await cap_client.get_govt_hsn(), source="GOVT_HSN")
-            sac_rows = _normalize_rows(await cap_client.get_govt_sac(), source="GOVT_SAC")
-            mara = await cap_client.get_mara()
-
-            approved_by_mat = {a["MaterialNumber"]: a["Code"] for a in approved if "MaterialNumber" in a}
-            affinity = {}
-            for mat in mara:
-                mat_num = mat.get("MaterialNumber")
-                mat_group = mat.get("MaterialGroup")
-                if mat_group and mat_num in approved_by_mat:
-                    affinity[mat_group] = approved_by_mat[mat_num][:4]
-
-            all_rows = approved + hsn_rows + sac_rows
-            print(f"BM25 index ready: {len(all_rows)} rows "
-                  f"({len(approved)} approved, {len(hsn_rows)} HSN, {len(sac_rows)} SAC).")
-
-            async with _index_lock:
-                _index = govt_lookup.Index(fallback_rows=all_rows, fallback_affinity=affinity)
-                _index_error = None
-            return
-        except Exception as exc:
-            _index_error = str(exc)
-            print(f"Index build attempt {attempt}/30 failed: {exc}")
-            await asyncio.sleep(10)
-
-    print("Search index failed to build after 30 attempts.")
 
 
 @app.on_event("startup")
 async def startup():
-    asyncio.create_task(_build_index())
+    asyncio.create_task(ranking_core.build_index())
 
 
 @app.get("/health")
 async def health():
-    if _index:
+    index = ranking_core.get_index()
+    if index:
+        vector_count = 0
+        last_index_build = ""
+        try:
+            vector_count = await cap_client.count_tariff_embeddings()
+            last_index_build = await cap_client.get_system_metadata("embedding_index_built_at")
+        except Exception as exc:
+            last_index_build = f"error: {exc}"
+
         return {
             "status": "ready",
-            "documents": len(_index.rows),
-            "hsn_codes": len(_index._hsn_codes),
-            "sac_codes": len(_index._sac_codes),
+            "documents": len(index.rows),
+            "hsn_codes": len(index._hsn_codes),
+            "sac_codes": len(index._sac_codes),
+            "hana_vector_count": vector_count,
+            "embedding_index_built_at": last_index_build,
             "embedding_model": embedding_client.EMBEDDING_MODEL_NAME,
             "embeddings": (
                 "error"
@@ -102,8 +49,10 @@ async def health():
             ),
             "embedding_cache_entries": len(embedding_client._cache),
         }
-    if _index_error:
-        return {"status": "starting", "lastError": _index_error}
+
+    err = ranking_core.get_index_error()
+    if err:
+        return {"status": "starting", "lastError": err}
     return {"status": "starting"}
 
 
@@ -112,65 +61,25 @@ class ApproveRequest(BaseModel):
     chosenCode: str
 
 
-def _tariff_for(material_type: str) -> str:
-    return "SAC" if (material_type or "").upper() in _SERVICE_TYPES else "HSN"
-
-
-async def _rank_material(material_number: str) -> dict:
-    if not _index:
-        raise HTTPException(503, _index_error or "Index not ready")
-
-    details = await cap_client.get_material_details(material_number)
-    if details is None:
-        raise HTTPException(404, f"No material master (MARA/MAKT) or legacy description for '{material_number}'")
-
-    description = details["Description"]
-    material_group = details.get("MaterialGroup")
-    material_type = details.get("MaterialType") or ""
-    tariff = _tariff_for(material_type)
-
-    # BM25 first narrows ~15k rows to 50. Embed only the query and shortlist,
-    # in one cached request, so startup remains cheap and BTP-safe.
-    shortlist = _index.shortlist_indices(description, tariff=tariff)
-    texts = [description] + [_index.rows[index]["Description"] for index in shortlist]
-    embeddings = await embedding_client.get_embeddings(texts)
-    query_embedding = embeddings[0]
-    _index.set_embeddings(shortlist, embeddings[1:])
-
-    candidates = _index.rank(
-        description,
-        query_embedding=query_embedding,
-        material_group=material_group,
-        tariff=tariff,
-        n=3,
-    )
-
-    return {
-        "materialNumber": material_number,
-        "description": description,
-        "materialGroup": material_group,
-        "materialType": material_type,
-        "candidates": candidates,
-    }
-
-
-async def _rank_and_save(material_number: str) -> dict:
-    result = await _rank_material(material_number)
-    await cap_client.save_candidate_suggestions(material_number, result["candidates"])
-    return result
-
-
 @app.post("/rank/{material_number}")
 async def rank_material(material_number: str):
-    """Rank one pending material and persist top-3 to CandidateSuggestions."""
-    return await _rank_and_save(material_number)
+    try:
+        return await ranking_core.rank_and_save(material_number)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
 
 
 @app.get("/candidates/{material_number}")
 async def get_candidates(material_number: str, refresh: bool = False):
-    """Return precomputed candidates from CAP. Use ?refresh=true to re-rank."""
     if refresh:
-        return await _rank_and_save(material_number)
+        try:
+            return await ranking_core.rank_and_save(material_number)
+        except LookupError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
 
     rows = await cap_client.get_candidate_suggestions(material_number)
     if not rows:
@@ -193,77 +102,42 @@ async def get_candidates(material_number: str, refresh: bool = False):
 
 @app.post("/approve")
 async def approve(req: ApproveRequest):
-    if not _index:
-        raise HTTPException(503, _index_error or "Index not ready")
+    index = ranking_core.get_index()
+    if not index:
+        raise HTTPException(503, ranking_core.get_index_error() or "Index not ready")
 
     details = await cap_client.get_material_details(req.materialNumber)
     if details is None:
         raise HTTPException(404, f"No material master or legacy data for '{req.materialNumber}'")
 
     material_type = details.get("MaterialType") or ""
-
-    # Validate chosen code against govt master (single truth for valid HSN/SAC)
-    if not _index.is_valid_code(req.chosenCode, material_type):
-        tariff = _tariff_for(material_type)
+    if not index.is_valid_code(req.chosenCode, material_type):
+        tariff = tariff_for(material_type)
         raise HTTPException(
             400,
-            f"Code '{req.chosenCode}' is not a valid {tariff} code in the government master."
+            f"Code '{req.chosenCode}' is not a valid {tariff} code in the government master.",
         )
 
     description = details["Description"]
     await cap_client.approve_classification(req.materialNumber, description, req.chosenCode)
 
-    # Hot-reload: embed approved description and extend in-memory index
-    embedding = await embedding_client.get_embedding(description)
-    _index.add_document(
-        {
-            "MaterialNumber": req.materialNumber,
-            "Code": req.chosenCode,
-            "Description": description,
-            "Source": "APPROVED",
-        },
-        embedding=embedding,
-    )
+    index.add_document({
+        "MaterialNumber": req.materialNumber,
+        "Code": req.chosenCode,
+        "Description": description,
+        "Source": "APPROVED",
+    })
+    await ranking_core.upsert_approved_embedding(req.chosenCode, description)
 
     return {"materialNumber": req.materialNumber, "hsn": req.chosenCode}
 
 
-async def run_batch_job():
-    if not _index:
-        print(f"Batch aborted: index not ready ({_index_error})")
-        return
-
-    try:
-        material_numbers = await cap_client.get_pending_material_numbers()
-    except Exception as exc:
-        print(f"Batch aborted: could not read pending queue from CAP ({exc})")
-        return
-
-    print(f"Batch: ranking {len(material_numbers)} pending materials...")
-
-    ok, skipped_zero, failed = 0, 0, 0
-    for mat_num in material_numbers:
-        try:
-            result = await _rank_and_save(mat_num)
-            if result["candidates"]:
-                top = result["candidates"][0]["Code"]
-                conf = result["candidates"][0]["confidence"]
-                print(f"  {mat_num}: {len(result['candidates'])} candidates, top={top} ({conf:.0%})")
-                ok += 1
-            else:
-                print(f"  {mat_num}: no match (all scores zero — skipped)")
-                skipped_zero += 1
-        except Exception as exc:
-            print(f"  {mat_num}: failed ({exc})")
-            failed += 1
-
-    print(
-        f"Batch complete: {ok} ranked, {skipped_zero} no-match, {failed} errors. "
-        f"Total: {len(material_numbers)}."
-    )
-
-
 @app.post("/trigger_batch")
-async def trigger_batch(background_tasks: BackgroundTasks):
-    background_tasks.add_task(run_batch_job)
-    return {"message": "Batch job started. Results will appear in CandidateSuggestions."}
+async def trigger_batch():
+    return {
+        "message": (
+            "Batch is not run in the API process. "
+            "Use: python -m jobs.run_batch (BAS) or "
+            "cf run-task hsn-lookup-worker --command \"python -m jobs.run_batch\""
+        ),
+    }

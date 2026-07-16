@@ -42,10 +42,22 @@ entity CandidateSuggestions {
   Score              : Decimal(5,2);
 }
 
-// HANA Native Vector Storage
-entity MaterialEmbeddings {
-  key MaterialNumber : String(40);
-  Embedding          : LargeString; // In HANA, this is mapped to REAL_VECTOR(1536) via native HANA SQL or CDS annotations
+/** Precomputed tariff corpus vectors (govt + approved). Not exposed via OData. */
+entity TariffCorpusEmbedding {
+  key Code        : String(40);
+  key Source      : String(20);
+      Description : LargeString;
+      DescriptionHash : String(64);
+      Model       : String(50) default 'BAAI/bge-small-en-v1.5';
+      EmbeddedAt  : Timestamp;
+      Embedding   : Vector(384);
+}
+
+/** Lightweight ops metadata (index build timestamps, etc.). */
+entity SystemMetadata {
+  key id        : String(50);
+      value     : String;
+      updatedAt : Timestamp;
 }
 
 /** Legacy classification queue (dummy HSN 9999 until approved). */

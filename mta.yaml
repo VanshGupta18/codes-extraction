@@ -53,7 +53,6 @@ modules:
     type: python
     path: lookup-service
     requires:
-      - name: hsn-hana-db
       - name: hsn-xsuaa
       - name: srv-api
         properties:
@@ -64,11 +63,28 @@ modules:
           lookup-url: ${default-url}
     parameters:
       buildpack: python_buildpack
-      memory: 1024M
+      memory: 512M
       disk-quota: 1024M
       health-check-type: http
       health-check-http-endpoint: /health
       health-check-invocation-timeout: 120
+
+  # ─── Python Worker (CF tasks: embedding index + batch) ───────────────────
+  - name: hsn-lookup-worker
+    type: python
+    path: lookup-service
+    requires:
+      - name: hsn-xsuaa
+      - name: srv-api
+        properties:
+          CAP_BASE_URL: ~{srv-url}/odata/v4/hsn
+    parameters:
+      buildpack: python_buildpack
+      no-route: true
+      memory: 1536M
+      disk-quota: 2048M
+      command: python -m jobs.run_batch
+
   # ─── SAP AppRouter (Authentication + Routing Gateway) ────────────────────
   - name: hsn-approuter
     type: approuter.nodejs

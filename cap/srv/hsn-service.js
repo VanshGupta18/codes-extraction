@@ -1,4 +1,5 @@
 const cds = require('@sap/cds');
+const { registerVectorHandlers } = require('./vector-handlers');
 
 const LOOKUP = process.env.LOOKUP_SERVICE_URL || 'http://localhost:8000';
 
@@ -20,6 +21,8 @@ async function callLookup(path, options = {}) {
 
 module.exports = cds.service.impl(function () {
   const { CandidateSuggestions, ZMM_MAT_LEGACY } = cds.entities('hsn');
+
+  registerVectorHandlers(this);
 
   this.before('CREATE', 'ZMM_MAT_LEGACY', async (req) => {
     const row = req.data;

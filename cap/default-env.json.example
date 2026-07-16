@@ -1,4 +1,5 @@
 {
   "VCAP_SERVICES": {},
-  "LOOKUP_SERVICE_URL": "http://localhost:8000"
+  "LOOKUP_SERVICE_URL": "http://localhost:8000",
+  "CAP_BASE_URL": "http://localhost:4004/odata/v4/hsn"
 }

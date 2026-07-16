@@ -3,26 +3,40 @@
   "tenant-mode": "dedicated",
   "scopes": [
     {
-      "name": "$XSAPPNAME.User",
-      "description": "User scope"
+      "name": "$XSAPPNAME.Classifier",
+      "description": "View queue and run classification"
+    },
+    {
+      "name": "$XSAPPNAME.Approver",
+      "description": "Approve HSN classifications"
     },
     {
       "name": "$XSAPPNAME.Admin",
-      "description": "Admin scope"
+      "description": "Administer the HSN service"
     }
   ],
   "role-templates": [
     {
-      "name": "User",
-      "description": "User role",
+      "name": "Classifier",
+      "description": "Review materials and trigger batch",
       "scope-references": [
-        "$XSAPPNAME.User"
+        "$XSAPPNAME.Classifier"
+      ]
+    },
+    {
+      "name": "Approver",
+      "description": "Approve classifications",
+      "scope-references": [
+        "$XSAPPNAME.Classifier",
+        "$XSAPPNAME.Approver"
       ]
     },
     {
       "name": "Admin",
-      "description": "Admin role",
+      "description": "Full administration",
       "scope-references": [
+        "$XSAPPNAME.Classifier",
+        "$XSAPPNAME.Approver",
         "$XSAPPNAME.Admin"
       ]
     }
