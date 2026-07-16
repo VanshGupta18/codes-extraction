@@ -43,9 +43,9 @@ entity MaterialEmbeddings {
 
 /** Legacy classification queue (dummy HSN 9999 until approved). */
 entity ZMM_MAT_LEGACY {
-  Legacy_Serial_number : String;
+  key Legacy_Serial_number : String(100);
   Material_Type : String;
-  key Material : String(40);
+  Material : String(40);
   Material_Description : String;
   Legacy_Field_Value : String;
   Material_Group : String;
@@ -94,9 +94,9 @@ entity ZMM_MAT_LEGACY {
 
 /** Final table where approved materials are copied to. */
 entity ZMM_MAT_APPROVED {
-  Legacy_Serial_number : String;
+  key Legacy_Serial_number : String(100);
   Material_Type : String;
-  key Material : String(40);
+  Material : String(40);
   Material_Description : String;
   Legacy_Field_Value : String;
   Material_Group : String;
