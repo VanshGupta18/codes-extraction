@@ -15,6 +15,13 @@ export default function StatusBadge({ status }) {
     'Flagged':   'hsn-status hsn-status--flagged',
   };
 
+  const labelMap = {
+    'Approved':  'Approved',
+    'AI-Assist': 'AI Assist',
+    'Pending':   'Pending Review',
+    'Flagged':   'Flagged',
+  };
+
   const dotMap = {
     'Approved':  '●',
     'AI-Assist': '◆',
@@ -23,9 +30,9 @@ export default function StatusBadge({ status }) {
   };
 
   return (
-    <span className={classMap[status] ?? 'hsn-status'}>
-      <span aria-hidden="true">{dotMap[status]}</span>
-      {status}
+    <span className={classMap[status] ?? 'hsn-status hsn-status--pending'}>
+      <span aria-hidden="true">{dotMap[status] ?? '○'}</span>
+      {labelMap[status] ?? status}
     </span>
   );
 }

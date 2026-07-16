@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { Tag } from '@ui5/webcomponents-react';
 import './index.css';
 import MaterialQueueTable from './components/MaterialQueueTable';
 import IngestionPage from './pages/IngestionPage';
@@ -24,11 +23,11 @@ export default function App() {
         <span className="hsn-shell-header__title">Master Data Governance</span>
         
         {/* Navigation Tabs */}
-        <nav style={{ marginLeft: '40px', display: 'flex', gap: '20px', alignItems: 'center' }}>
+        <nav className="hsn-shell-nav" aria-label="Main navigation">
           <Link to="/add" className={`hsn-nav-link ${location.pathname === '/add' ? 'active' : ''}`}>Add Material</Link>
           <Link to="/review" className={`hsn-nav-link ${location.pathname === '/review' ? 'active' : ''}`}>
             Review Workbench
-            {itemCount > 0 && <Tag colorScheme="8" style={{ marginLeft: '8px' }}>{itemCount}</Tag>}
+            {itemCount > 0 && <span className="hsn-nav-badge">{itemCount}</span>}
           </Link>
           <Link to="/view" className={`hsn-nav-link ${location.pathname === '/view' ? 'active' : ''}`}>Data Explorer</Link>
         </nav>

@@ -11,6 +11,7 @@
   --hsn-primary:           #002444;
   --hsn-primary-container: #1a3a5c;
   --hsn-on-primary:        #ffffff;
+  --hsn-on-primary-container: #ffffff;
   --hsn-inverse-primary:   #abc9f2;
 
   /* Surfaces */
@@ -136,25 +137,53 @@ body {
   z-index: 1000;
 }
 
-.hsn-nav-link {
-  color: var(--hsn-on-surface);
+.hsn-shell-header__divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255,255,255,0.25);
+}
+
+.hsn-shell-nav {
+  margin-left: 40px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Nav links live on the dark header — always use light text */
+.hsn-shell-header .hsn-nav-link {
+  color: rgba(255, 255, 255, 0.88);
   text-decoration: none;
   font-weight: 500;
   font-size: 14px;
   padding: 8px 12px;
   border-radius: 4px;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, color 0.2s;
   display: flex;
   align-items: center;
 }
 
-.hsn-nav-link:hover {
-  background-color: var(--hsn-surface-container-highest);
+.hsn-shell-header .hsn-nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
 }
 
-.hsn-nav-link.active {
-  background-color: var(--hsn-primary-container);
-  color: var(--hsn-on-primary-container);
+.hsn-shell-header .hsn-nav-link.active {
+  background-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.hsn-nav-badge {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: var(--hsn-radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
 }
 
 .hsn-shell-header__logo {
@@ -171,12 +200,6 @@ body {
   font-weight: 600;
   letter-spacing: 0;
   color: var(--hsn-on-primary);
-}
-
-.hsn-shell-header__divider {
-  width: 1px;
-  height: 20px;
-  background: rgba(255,255,255,0.25);
 }
 
 /* ── Main Content ──────────────────────────────────────────── */
@@ -209,6 +232,17 @@ body {
   font-size: 12px;
   color: var(--hsn-on-surface-variant);
   margin-top: 2px;
+}
+
+.hsn-page-header__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.hsn-bulk-bar__actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
 }
 
 /* ── Filter Bar ────────────────────────────────────────────── */
@@ -343,6 +377,30 @@ body {
 .hsn-cell--dim {
   color: var(--hsn-on-surface-variant);
   font-size: 12px;
+}
+
+.hsn-cell--hsn-approved {
+  font-weight: 600;
+  font-family: var(--hsn-font-code);
+  color: var(--hsn-status-approved-text);
+}
+
+.hsn-cell--hsn-pending {
+  font-weight: 600;
+  font-family: var(--hsn-font-code);
+  color: var(--hsn-on-surface-variant);
+}
+
+.hsn-link {
+  color: var(--hsn-primary-container);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.hsn-link:hover {
+  text-decoration: underline;
 }
 
 /* ── HSN Pill (HsnCell) ────────────────────────────────────── */
@@ -622,6 +680,42 @@ body {
 
 .hsn-btn--ghost:hover {
   background: var(--hsn-surface-container);
+}
+
+.hsn-btn--outline-primary {
+  background: transparent;
+  color: var(--hsn-primary-container);
+  border-color: var(--hsn-primary-container);
+}
+
+.hsn-btn--outline-primary:hover {
+  background: var(--hsn-surface-container-low);
+}
+
+.hsn-bulk-bar__btn {
+  height: 30px;
+  font-size: 12px;
+  padding: 0 12px;
+}
+
+.hsn-bulk-bar__btn--ghost {
+  background: transparent;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.hsn-bulk-bar__btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.hsn-bulk-bar__btn--emphasis {
+  background: #ffffff;
+  color: var(--hsn-primary-container);
+  border-color: #ffffff;
+}
+
+.hsn-bulk-bar__btn--emphasis:hover {
+  background: var(--hsn-surface-container-low);
 }
 
 .hsn-btn--danger {

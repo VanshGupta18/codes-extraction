@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Label, Title, Button, FilterBar, FilterGroupItem, Input, Option, Select, Dialog } from '@ui5/webcomponents-react';
 import { fetchAllMasterData, fetchMaterialDetails } from '../services/odataClient';
+import StatusBadge from '../components/StatusBadge';
 
 const PREFERRED_COLUMN_ORDER = [
   'Legacy_Serial_number', 'Material_Type', 'Material', 'Material_Description', 'Legacy_Field_Value',
@@ -159,21 +160,12 @@ export default function MasterDataPage() {
                 <td>{item.Material_Description}</td>
                 <td>{item.Material_Group}</td>
                 <td>
-                  <span style={{ fontWeight: 'bold', color: isApproved ? 'var(--hsn-primary)' : 'var(--hsn-on-surface-variant)' }}>
+                  <span className={isApproved ? 'hsn-cell--hsn-approved' : 'hsn-cell--hsn-pending'}>
                     {item.HSN}
                   </span>
                 </td>
                 <td>
-                  <span style={{ 
-                    padding: '2px 8px', 
-                    borderRadius: '12px', 
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    backgroundColor: isApproved ? 'var(--hsn-primary-container)' : 'var(--hsn-surface-container-highest)',
-                    color: isApproved ? 'var(--hsn-on-primary-container)' : 'var(--hsn-on-surface)'
-                  }}>
-                    {isApproved ? 'Approved' : 'Pending Review'}
-                  </span>
+                  <StatusBadge status={isApproved ? 'Approved' : 'Pending'} />
                 </td>
               </tr>
             );

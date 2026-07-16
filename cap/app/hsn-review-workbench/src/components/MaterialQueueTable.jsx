@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchMaterialQueue, bulkApprove, triggerBatchPipeline } from '../services/odataClient';
-import { Avatar, Tag, MultiComboBox, MultiComboBoxItem, Button } from '@ui5/webcomponents-react';
-import '@ui5/webcomponents-icons/dist/question-mark.js';
+import { MultiComboBox, MultiComboBoxItem } from '@ui5/webcomponents-react';
 import StatusBadge from './StatusBadge';
 import HsnCell from './HsnCell';
 import MaterialDetailDrawer from './MaterialDetailDrawer';
@@ -165,8 +164,8 @@ export default function MaterialQueueTable({ onDataLoaded }) {
             {filtered.length} material{filtered.length !== 1 ? 's' : ''} — review and approve AI-proposed HSN codes
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="hsn-btn hsn-btn--ghost" onClick={handleRunBatch} disabled={batchJobTriggering} type="button" style={{ border: '1px solid var(--hsn-primary)', color: 'var(--hsn-primary)' }}>
+        <div className="hsn-page-header__actions">
+          <button className="hsn-btn hsn-btn--outline-primary" onClick={handleRunBatch} disabled={batchJobTriggering} type="button">
             {batchJobTriggering ? 'Triggering...' : '▶ Run Batch Pipeline'}
           </button>
           <button className="hsn-btn hsn-btn--ghost" onClick={loadData} type="button">
@@ -238,22 +237,18 @@ export default function MaterialQueueTable({ onDataLoaded }) {
           <span className="hsn-bulk-bar__text">
             {selectedIds.size} material{selectedIds.size !== 1 ? 's' : ''} selected
           </span>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-            <Button
-              design="Transparent"
-              onClick={() => {}}
-              style={{ color: '#ffffff', borderColor: '#ffffff', border: '1px solid', height: 30 }}
-            >
+          <div className="hsn-bulk-bar__actions">
+            <button type="button" className="hsn-btn hsn-bulk-bar__btn hsn-bulk-bar__btn--ghost">
               Assign to me
-            </Button>
-            <Button
-              design="Emphasized"
+            </button>
+            <button
+              type="button"
+              className="hsn-btn hsn-bulk-bar__btn hsn-bulk-bar__btn--emphasis"
               onClick={handleBulkApprove}
               disabled={bulkLoading}
-              style={{ background: '#ffffff', color: 'var(--hsn-primary-container)', height: 30 }}
             >
               {bulkLoading ? 'Approving…' : `Approve Selected (${selectedIds.size})`}
-            </Button>
+            </button>
           </div>
         </div>
       )}
@@ -329,7 +324,7 @@ export default function MaterialQueueTable({ onDataLoaded }) {
                         <span>{m.reviewedBy}</span>
                       ) : (
                         <div className="hsn-assign-wrapper">
-                          <span className="hsn-assign-link" style={{ color: 'var(--hsn-primary)', cursor: 'pointer', fontSize: '12px' }}>Assign to me</span>
+                          <span className="hsn-link">Assign to me</span>
                         </div>
                       )}
                     </td>
