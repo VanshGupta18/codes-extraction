@@ -237,6 +237,9 @@ export default function AnalyticsPage() {
           ⚠️ Note: AI/Human split is estimated. In Phase 2, each approval can be tagged with its source (AI or manual) for exact metrics.
         </p>
       </div>
+      
+      {/* Spacer to ensure the page scrolls past the bottom */}
+      <div style={{ height: '6rem', width: '100%' }} />
     </div>
   );
 }
