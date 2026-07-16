@@ -53,9 +53,7 @@ modules:
       - name: hsn-event-mesh
       - name: hsn-xsuaa
       - name: srv-api
-        group: destinations
         properties:
-          name: srv-api
           CAP_BASE_URL: ~{srv-url}/odata/v4/hsn
     provides:
       - name: hsn-lookup-api
@@ -65,9 +63,6 @@ modules:
       buildpack: python_buildpack
       memory: 1024M
       disk-quota: 1024M
-      env:
-        CAP_BASE_URL: ~{srv-url}/odata/v4/hsn
-
   # ─── SAP AppRouter (Authentication + Routing Gateway) ────────────────────
   - name: hsn-approuter
     type: approuter.nodejs
