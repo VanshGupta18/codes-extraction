@@ -17,7 +17,7 @@ function tableName() {
 }
 
 async function registerVectorHandlers(srv) {
-  const { TariffCorpusEmbedding, SystemMetadata } = cds.entities('hsn');
+  const { SystemMetadata } = cds.entities('hsn');
   const embedTable = tableName();
 
   srv.on('fetchCorpusSimilarity', async (req) => {
@@ -74,16 +74,20 @@ async function registerVectorHandlers(srv) {
         continue;
       }
 
-      await tx.delete(TariffCorpusEmbedding).where({ Code: code, Source: source });
-      await tx.insert({
-        Code: code,
-        Source: source,
-        Description: description,
-        DescriptionHash: descriptionHash,
-        Model: model,
-        EmbeddedAt: new Date().toISOString(),
-        Embedding: embedding,
-      }).into(TariffCorpusEmbedding);
+      const vectorLiteral = toVectorLiteral(embedding);
+      const embeddedAt = new Date().toISOString();
+
+      // CDS tx.insert cannot bind JS arrays to REAL_VECTOR — use native SQL.
+      await tx.run(
+        `DELETE FROM ${embedTable} WHERE CODE = ? AND SOURCE = ?`,
+        [code, source],
+      );
+      await tx.run(
+        `INSERT INTO ${embedTable}
+           (CODE, SOURCE, DESCRIPTION, DESCRIPTIONHASH, MODEL, EMBEDDEDAT, EMBEDDING)
+         VALUES (?, ?, ?, ?, ?, ?, TO_REAL_VECTOR(?))`,
+        [code, source, description, descriptionHash, model, embeddedAt, vectorLiteral],
+      );
       count += 1;
     }
 
