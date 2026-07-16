@@ -102,7 +102,7 @@ export default function IngestionPage() {
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         
-        <Panel headerText="1. Primary Identification" expanded>
+        <Panel headerText="1. Primary Identification">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
             {renderField('Material', 'Material Number', true)}
             {renderField('Material_Description', 'Description', true)}
@@ -112,7 +112,7 @@ export default function IngestionPage() {
           </div>
         </Panel>
 
-        <Panel headerText="2. Categorization & Characteristics" expanded>
+        <Panel headerText="2. Categorization & Characteristics">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
             {renderField('Material_Type', 'Material Type (e.g. FERT)')}
             {renderField('Material_Group', 'Material Group')}
@@ -122,7 +122,7 @@ export default function IngestionPage() {
           </div>
         </Panel>
 
-        <Panel headerText="3. Organizational & Plant Data" expanded>
+        <Panel headerText="3. Organizational & Plant Data">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
             {renderField('ZZ1_MM_RP_PLT', 'Plant (ZZ1_MM_RP_PLT)')}
             {renderField('Plant_type_Legacy', 'Plant Type Legacy')}
@@ -133,7 +133,7 @@ export default function IngestionPage() {
           </div>
         </Panel>
 
-        <Panel headerText="4. Lifecycle & Flags" expanded>
+        <Panel headerText="4. Lifecycle & Flags">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
             {renderField('Valid_From', 'Valid From (YYYY-MM-DD)')}
             {renderField('Effective_Till_Date', 'Effective Till (YYYY-MM-DD)')}
@@ -143,7 +143,7 @@ export default function IngestionPage() {
           </div>
         </Panel>
 
-        <Panel headerText="5. Base Units & Weights" expanded>
+        <Panel headerText="5. Base Units & Weights">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
             {renderField('Base_Unit_of_Measure', 'Base Unit of Measure')}
             {renderField('Unit_of_Weight', 'Unit of Weight')}
@@ -151,7 +151,7 @@ export default function IngestionPage() {
           </div>
         </Panel>
 
-        <Panel headerText="6. Advanced Unit Conversions" collapsed>
+        <Panel headerText="6. Advanced Unit Conversions" collapsed={true}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
             {renderField('Numerator', 'Numerator (Base)')}
             {renderField('Denominator', 'Denominator (Base)')}
@@ -190,7 +190,7 @@ export default function IngestionPage() {
           </div>
         </Panel>
 
-        <Panel headerText="7. Miscellaneous" expanded>
+        <Panel headerText="7. Miscellaneous">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
             {renderField('Legacy_Field_Value', 'Legacy Field Value')}
             {renderField('POTXT', 'POTXT')}
