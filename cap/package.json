@@ -21,6 +21,11 @@
       "db": {
         "kind": "hana-cloud"
       }
+    },
+    "server": {
+      "body_parser": {
+        "limit": "10mb"
+      }
     }
   }
 }

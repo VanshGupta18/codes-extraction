@@ -35,20 +35,20 @@ async function registerVectorHandlers(srv) {
     const codePh = codes.map(() => '?').join(', ');
 
     const rows = await db.run(
-      `SELECT "Code", "Description", "Source",
-              COSINE_SIMILARITY("Embedding", TO_REAL_VECTOR(?)) AS "cosineScore"
-       FROM "${embedTable}"
-       WHERE "Source" IN (${sourcePh})
-         AND "Code" IN (${codePh})
-       ORDER BY "cosineScore" DESC`,
+      `SELECT CODE, DESCRIPTION, SOURCE,
+              COSINE_SIMILARITY(EMBEDDING, TO_REAL_VECTOR(?)) AS COSINE_SCORE
+       FROM ${embedTable}
+       WHERE SOURCE IN (${sourcePh})
+         AND CODE IN (${codePh})
+       ORDER BY COSINE_SCORE DESC`,
       [vectorLiteral, ...sources, ...codes],
     );
 
     const result = (rows || []).map((row) => ({
-      code: row.Code,
-      description: row.Description,
-      source: row.Source,
-      cosineScore: Number(row.cosineScore ?? 0),
+      code: row.CODE ?? row.Code,
+      description: row.DESCRIPTION ?? row.Description,
+      source: row.SOURCE ?? row.Source,
+      cosineScore: Number(row.COSINE_SCORE ?? row.cosineScore ?? 0),
     }));
 
     return JSON.stringify(result);
@@ -92,9 +92,9 @@ async function registerVectorHandlers(srv) {
 
   srv.on('countTariffEmbeddings', async () => {
     const db = await cds.connect.to('db');
-    const rows = await db.run(`SELECT COUNT(*) AS "cnt" FROM "${embedTable}"`);
+    const rows = await db.run(`SELECT COUNT(*) AS CNT FROM ${embedTable}`);
     const row = Array.isArray(rows) ? rows[0] : rows;
-    return Number(row?.cnt ?? 0);
+    return Number(row?.CNT ?? row?.cnt ?? 0);
   });
 
   srv.on('setSystemMetadata', async (req) => {

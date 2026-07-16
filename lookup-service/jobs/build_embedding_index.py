@@ -7,7 +7,7 @@ import embedding_client
 from ranking_core import normalize_rows
 
 
-EMBED_CHUNK_SIZE = 256
+EMBED_CHUNK_SIZE = 64
 
 
 async def _corpus_rows() -> list[dict]:

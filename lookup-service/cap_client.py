@@ -254,11 +254,16 @@ async def fetch_corpus_similarity(
     return raw if isinstance(raw, list) else []
 
 
-async def upsert_tariff_embeddings(batch: list[dict]) -> int:
-    result = await call_action("upsertTariffEmbeddings", {
-        "batchJson": json.dumps(batch),
-    })
-    return int(result or 0)
+async def upsert_tariff_embeddings(batch: list[dict], *, chunk_size: int = 20) -> int:
+    """Upsert in small HTTP chunks — each row carries a 384-dim vector + long description."""
+    total = 0
+    for i in range(0, len(batch), chunk_size):
+        chunk = batch[i : i + chunk_size]
+        result = await call_action("upsertTariffEmbeddings", {
+            "batchJson": json.dumps(chunk),
+        })
+        total += int(result or 0)
+    return total
 
 
 async def count_tariff_embeddings() -> int:
