@@ -16,7 +16,8 @@
   "scripts": {
     "start": "cds-serve",
     "start:hybrid": "cds-serve --profile hybrid",
-    "build:ui": "npm --prefix app/hsn-review-workbench run build"
+    "build:ui": "npm --prefix app/hsn-review-workbench run build",
+    "build": "cds build --production"
   },
   "cds": {
     "requires": {

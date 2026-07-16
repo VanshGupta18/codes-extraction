@@ -10,7 +10,7 @@ build-parameters:
       commands:
         - npm ci --prefix cap
         - npm run build:ui --prefix cap
-        - cd cap && npx cds build --production
+        - npm run build --prefix cap
 
 modules:
 
