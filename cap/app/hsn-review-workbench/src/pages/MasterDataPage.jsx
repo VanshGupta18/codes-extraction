@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Table, TableColumn, TableRow, TableCell, Label, Title, Button, Bar, FilterBar, FilterGroupItem, Input, Option, Select } from '@ui5/webcomponents-react';
+import { Label, Title, Button, FilterBar, FilterGroupItem, Input, Option, Select } from '@ui5/webcomponents-react';
 import { fetchAllMasterData } from '../services/odataClient';
 
 export default function MasterDataPage() {
@@ -91,45 +91,45 @@ export default function MasterDataPage() {
         </FilterGroupItem>
       </FilterBar>
 
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        <Table
-          columns={
-            <>
-              <TableColumn><Label>Material</Label></TableColumn>
-              <TableColumn><Label>Description</Label></TableColumn>
-              <TableColumn><Label>Material Group</Label></TableColumn>
-              <TableColumn><Label>Plant</Label></TableColumn>
-              <TableColumn><Label>HSN Code</Label></TableColumn>
-              <TableColumn><Label>Status</Label></TableColumn>
-            </>
-          }
-        >
+      <div style={{ flex: 1, overflow: 'auto', background: 'var(--hsn-surface-container-lowest)', borderRadius: '8px' }}>
+        <table className="hsn-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Description</th>
+              <th>Material Group</th>
+              <th>Plant</th>
+              <th>HSN Code</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
           {loading && (
-            <TableRow>
-              <TableCell colSpan={6}><Label>Loading master data...</Label></TableCell>
-            </TableRow>
+            <tr>
+              <td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>Loading master data...</td>
+            </tr>
           )}
           
           {!loading && filteredData.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={6}><Label>No materials found.</Label></TableCell>
-            </TableRow>
+            <tr>
+              <td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>No materials found.</td>
+            </tr>
           )}
 
           {!loading && filteredData.map(item => {
             const isApproved = item.HSN !== '9999';
             return (
-              <TableRow key={item.Legacy_Serial_number}>
-                <TableCell><Label>{item.Material}</Label></TableCell>
-                <TableCell><Label>{item.Material_Description}</Label></TableCell>
-                <TableCell><Label>{item.Material_Group}</Label></TableCell>
-                <TableCell><Label>{item.ZZ1_MM_RP_PLT}</Label></TableCell>
-                <TableCell>
-                  <Label style={{ fontWeight: 'bold', color: isApproved ? 'var(--hsn-primary)' : 'var(--hsn-on-surface-variant)' }}>
+              <tr key={item.Legacy_Serial_number}>
+                <td>{item.Material}</td>
+                <td>{item.Material_Description}</td>
+                <td>{item.Material_Group}</td>
+                <td>{item.ZZ1_MM_RP_PLT}</td>
+                <td>
+                  <span style={{ fontWeight: 'bold', color: isApproved ? 'var(--hsn-primary)' : 'var(--hsn-on-surface-variant)' }}>
                     {item.HSN}
-                  </Label>
-                </TableCell>
-                <TableCell>
+                  </span>
+                </td>
+                <td>
                   <span style={{ 
                     padding: '2px 8px', 
                     borderRadius: '12px', 
@@ -140,11 +140,12 @@ export default function MasterDataPage() {
                   }}>
                     {isApproved ? 'Approved' : 'Pending Review'}
                   </span>
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             );
           })}
-        </Table>
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchMaterialQueue, bulkApprove, triggerBatchJob } from '../services/odataClient';
+import { fetchMaterialQueue, bulkApprove, triggerBatchPipeline } from '../services/odataClient';
 import { Avatar, Tag, MultiComboBox, MultiComboBoxItem, Button } from '@ui5/webcomponents-react';
 import '@ui5/webcomponents-icons/dist/question-mark.js';
 import StatusBadge from './StatusBadge';
@@ -146,7 +146,7 @@ export default function MaterialQueueTable({ onDataLoaded }) {
   const handleRunBatch = async () => {
     setBatchJobTriggering(true);
     try {
-      await triggerBatchJob();
+      await triggerBatchPipeline();
       alert("Batch Pipeline triggered successfully! It is running in the background. Please wait a few moments and click Refresh to see the AI suggestions appear.");
     } catch (e) {
       alert("Failed to trigger batch job: " + e.message);
