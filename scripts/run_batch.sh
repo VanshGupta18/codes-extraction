@@ -3,8 +3,8 @@ echo "Starting CAP Server..."
 (cd cap && npm run start:hybrid) &
 CAP_PID=$!
 
-echo "Waiting 5 seconds for CAP to initialize..."
-sleep 5
+echo "Waiting 15 seconds for CAP + HANA Cloud to initialize..."
+sleep 15
 
 echo "Starting FastAPI Server..."
 (cd lookup-service && source .venv/bin/activate && uvicorn main:app --port 8000) &
