@@ -1,0 +1,19 @@
+{
+  "name": "hsn-sap-connector",
+  "version": "0.1.0",
+  "description": "CAP layer exposing MARA/MAKT/MARC, govt HSN+SAC master, and the approved-classifications learning corpus as OData",
+  "private": true,
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@sap/cds": "^10",
+    "@sap/cds-hana": "^2.1.0",
+    "@sap/xb-msg-amqp-v100": "^0.9.58"
+  },
+  "devDependencies": {
+    "@cap-js/sqlite": "^3",
+    "better-sqlite3": "^12"
+  },
+  "scripts": {
+    "start": "cds-serve"
+  }
+}

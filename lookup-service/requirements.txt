@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+httpx
+pandas
+openpyxl
+python-dotenv
+numpy
+hdbcli
+redis
+pika
+sqlalchemy-hana

@@ -1,0 +1,60 @@
+
+> hsn-sap-connector@0.1.0 start
+> cds-serve
+
+[cds] - loaded model from 2 file(s):
+ 
+  srv/hsn-service.cds
+  db/schema.cds
+
+[cds] - connect to db > sqlite { url: ':memory:' }
+  > init from db/data/hsn-ZMM_MAT_LEGACY.csv 
+  > init from db/data/hsn-MARC.csv 
+  > init from db/data/hsn-MARA.csv 
+  > init from db/data/hsn-MAKT.csv 
+  > init from db/data/hsn-GovtSACMaster.csv 
+  > init from db/data/hsn-GovtHSNMaster.csv 
+  > init from db/data/hsn-ApprovedClassifications.csv 
+/> successfully deployed to in-memory database. 
+
+[cds] - using auth strategy { kind: 'mocked' }
+[cds] - serving HSNService {
+  at: [ '/odata/v4/hsn' ],
+  decl: 'srv/hsn-service.cds:5'
+}
+[cds] - server listening on { url: 'http://localhost:4004' }
+[cds] - server v10.0.3 launched in 457 ms
+[odata] - GET /odata/v4/hsn/GovtHSNMaster { '$top': '20000' }
+[odata] - GET /odata/v4/hsn/GovtSACMaster { '$top': '20000' }
+[odata] - GET /odata/v4/hsn/ApprovedClassifications { '$top': '20000' }
+[odata] - GET /odata/v4/hsn/MAKT {
+  '$filter': "MaterialNumber eq 'MA8NM004000' and Language eq 'EN'",
+  '$top': '1'
+}
+[odata] - 400 - peg$SyntaxError: Parsing URL failed at position 41: Expected "(", "/", or a whitespace but "+" found.
+    at rs (/Users/vanshgupta/Documents/Projects/codes-extraction/cap/node_modules/@sap/cds/libx/odata/parse/parser.js:1:16207)
+    at Vo (/Users/vanshgupta/Documents/Projects/codes-extraction/cap/node_modules/@sap/cds/libx/odata/parse/parser.js:1:77759)
+    at peg$parse (/Users/vanshgupta/Documents/Projects/codes-extraction/cap/node_modules/@sap/cds/libx/odata/parse/parser.js:1:78062)
+    at Object.parse (/Users/vanshgupta/Documents/Projects/codes-extraction/cap/node_modules/@sap/cds/libx/odata/index.js:105:13)
+    at parse_odata_url (/Users/vanshgupta/Documents/Projects/codes-extraction/cap/node_modules/@sap/cds/libx/odata/middleware/parse.js:19:28)
+    at Layer.handleRequest (/Users/vanshgupta/Documents/Projects/codes-extraction/cap/node_modules/router/lib/layer.js:152:17)
+    at trimPrefix (/Users/vanshgupta/Documents/Projects/codes-extraction/cap/node_modules/router/index.js:342:13)
+    at /Users/vanshgupta/Documents/Projects/codes-extraction/cap/node_modules/router/index.js:297:9
+    at processParams (/Users/vanshgupta/Documents/Projects/codes-extraction/cap/node_modules/router/index.js:582:12)
+    at next (/Users/vanshgupta/Documents/Projects/codes-extraction/cap/node_modules/router/index.js:291:5) {
+  expected: [
+    { type: 'literal', text: '(', ignoreCase: false },
+    { type: 'other', description: 'a whitespace' },
+    { type: 'literal', text: '/', ignoreCase: false },
+    { type: 'literal', text: '(', ignoreCase: false },
+    { type: 'other', description: 'a whitespace' }
+  ],
+  found: '+',
+  location: {
+    source: undefined,
+    start: { offset: 28, line: 1, column: 29 },
+    end: { offset: 29, line: 1, column: 30 }
+  },
+  status: 400,
+  code: '400'
+}

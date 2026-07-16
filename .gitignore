@@ -1,0 +1,22 @@
+# Secrets — never commit
+.env
+.env.*
+*credentials*
+
+# Real/proprietary data — never commit (Maruti material exports, govt HSN/SAC source, generated seed CSVs)
+*.xlsx
+*.xls
+cap/db/data/*.csv
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Build/runtime artifacts
+__pycache__/
+*.pyc
+*.log
+
+# OS
+.DS_Store

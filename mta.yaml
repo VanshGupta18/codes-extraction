@@ -1,0 +1,80 @@
+_schema-version: '3.1'
+ID: hsn-codes-extraction
+version: 1.0.0
+description: "HSN Code Lookup Service and SAP CAP Backend"
+parameters:
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci --prefix cap
+
+modules:
+  - name: hsn-cap-srv
+    type: nodejs
+    path: cap
+    requires:
+      - name: hsn-hana-db
+      - name: hsn-event-mesh
+      - name: hsn-xsuaa
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+    parameters:
+      buildpack: nodejs_buildpack
+    build-parameters:
+      builder: npm-ci
+
+  - name: hsn-db-deployer
+    type: hdb
+    path: cap/db
+    requires:
+      - name: hsn-hana-db
+    parameters:
+      buildpack: nodejs_buildpack
+
+  - name: hsn-lookup-service
+    type: python
+    path: lookup-service
+    requires:
+      - name: hsn-hana-db
+      - name: hsn-event-mesh
+      - name: hsn-redis
+      - name: hsn-xsuaa
+      - name: srv-api
+    parameters:
+      buildpack: python_buildpack
+      memory: 1024M
+      disk-quota: 1024M
+
+resources:
+  - name: hsn-hana-db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+
+  - name: hsn-event-mesh
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: enterprise-messaging
+      service-plan: default
+      path: ./event-mesh.json
+
+  - name: hsn-redis
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: redis
+      service-plan: application-cache
+
+  - name: hsn-xsuaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        xsappname: hsn-app-${org}-${space}
+        tenant-mode: dedicated
