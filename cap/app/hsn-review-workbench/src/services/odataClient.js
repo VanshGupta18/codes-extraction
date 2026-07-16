@@ -133,7 +133,23 @@ export async function fetchAllMasterData() {
     throw new Error('Failed to fetch master data');
   }
   const data = await response.json();
-  return data.value;
+  
+  const uniqueMaterials = new Map();
+  for (const row of data.value) {
+    if (!row.Material) continue;
+    
+    if (!uniqueMaterials.has(row.Material)) {
+      uniqueMaterials.set(row.Material, row);
+    } else {
+      // If we encounter a duplicate, prefer the one with a real HSN if the existing is still pending
+      const existing = uniqueMaterials.get(row.Material);
+      if (existing.HSN === '9999' && row.HSN !== '9999') {
+        uniqueMaterials.set(row.Material, row);
+      }
+    }
+  }
+  
+  return Array.from(uniqueMaterials.values());
 }
 
 /**
