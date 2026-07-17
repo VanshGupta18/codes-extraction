@@ -96,7 +96,15 @@ export default function MasterDataPage() {
   return (
     <div style={{ padding: '1rem', background: 'var(--hsn-surface)', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title level="H3">Material Master Explorer</Title>
+        <div>
+          <Title level="H3">Material Master Explorer</Title>
+          {!loading && (
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--hsn-on-surface-variant)' }}>
+              {filteredData.length} material{filteredData.length !== 1 ? 's' : ''} shown
+              {data.length !== filteredData.length ? ` (${data.length} total unique)` : ''}
+            </p>
+          )}
+        </div>
         <Button onClick={loadData} disabled={loading} design="Transparent" icon="refresh">
           Refresh Data
         </Button>

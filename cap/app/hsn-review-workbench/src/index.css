@@ -889,7 +889,32 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: border-color 0.12s;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  text-align: left;
+  width: 100%;
+}
+
+.hsn-candidate-card--clickable {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.hsn-candidate-card--clickable:hover {
+  border-color: var(--hsn-primary-container);
+  box-shadow: var(--hsn-shadow-card);
+}
+
+.hsn-candidate-card--selected {
+  border-color: var(--hsn-primary-container);
+  box-shadow: 0 0 0 2px rgba(26, 58, 92, 0.2);
+  background: var(--hsn-surface-container-low);
+}
+
+.hsn-drawer__hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--hsn-on-surface-variant);
 }
 
 .hsn-candidate-card--top {

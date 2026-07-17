@@ -21,12 +21,36 @@ async function lookupPost(path, body) {
   });
   if (!res.ok) {
     const detail = await res.text();
+    let message = detail || res.statusText;
+    try {
+      const json = JSON.parse(detail);
+      if (typeof json.detail === 'string') message = json.detail;
+    } catch {
+      // keep raw body
+    }
     throw new Error(
-      `Lookup POST ${path} failed (${res.status}): ${detail || res.statusText}. ` +
+      `Lookup POST ${path} failed (${res.status}): ${message}. ` +
       'Ensure lookup-service is on port 8000 and CAP was restarted (cap/server.js proxy).',
     );
   }
   return res.json();
+}
+
+async function fetchODataAll(entity, params = {}) {
+  const qs = new URLSearchParams({ $top: '5000', ...params });
+  let url = `${ODATA}/${entity}?${qs}`;
+  const rows = [];
+
+  while (url) {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to fetch ${entity}`);
+    const data = await res.json();
+    rows.push(...(data.value || []));
+    const next = data['@odata.nextLink'];
+    if (!next) break;
+    url = next.startsWith('http') ? next : (next.startsWith('/') ? next : `${ODATA}/${next}`);
+  }
+  return rows;
 }
 
 async function fetchCsrfToken() {
@@ -94,7 +118,7 @@ export async function fetchMaterialQueue() {
 // ── Write ──────────────────────────────────────────────────────────────────
 
 export async function approveHsn(materialId, hsn) {
-  await lookupPost('/approve', { materialNumber: materialId, chosenCode: hsn });
+  await lookupPost('/approve', { materialNumber: materialId, chosenCode: (hsn || '').trim() });
   return { success: true };
 }
 
@@ -154,12 +178,10 @@ export async function addLegacyMaterial(materialData) {
 }
 
 export async function fetchAllMasterData() {
-  const response = await fetch(`${ODATA}/ZMM_MAT_LEGACY?$top=5000`);
-  if (!response.ok) throw new Error('Failed to fetch master data');
-  const data = await response.json();
+  const rows = await fetchODataAll('ZMM_MAT_LEGACY');
 
   const uniqueMaterials = new Map();
-  for (const row of data.value) {
+  for (const row of rows) {
     if (!row.Material) continue;
     if (!uniqueMaterials.has(row.Material)) {
       uniqueMaterials.set(row.Material, row);

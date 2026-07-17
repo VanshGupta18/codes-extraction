@@ -4,34 +4,23 @@ import StatusBadge from './StatusBadge';
 
 /**
  * MaterialDetailDrawer — right-side panel with full material context.
- *
- * Renders:
- *   • Header: Material ID (monospace), description, status badge
- *   • Metadata grid: Type, Category, Group, Plant, Reviewed by, Last Modified
- *   • 3 HSN candidate cards side-by-side with confidence bar + source
- *   • Manual override section (always visible, not collapsed)
- *   • Footer: Edit (ghost) | Approve (green)
- *
- * Props:
- *   material     material object | null
- *   onClose      () => void
- *   onApproved   (materialId, hsn) => void
  */
 export default function MaterialDetailDrawer({ material, onClose, onApproved }) {
-  const [manualHsn, setManualHsn]     = useState('');
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [manualHsn, setManualHsn] = useState('');
   const [manualReason, setManualReason] = useState('');
-  const [loading, setLoading]         = useState(false);
-  const [feedback, setFeedback]       = useState(null); // { type: 'success'|'error', msg }
+  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   useEffect(() => {
     if (material) {
+      setSelectedIdx(0);
       setManualHsn('');
       setManualReason('');
       setFeedback(null);
     }
   }, [material?.materialId]);
 
-  // Trap Escape key
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
@@ -40,23 +29,30 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
 
   if (!material) return null;
 
-  const topHsn = material.hsnCandidates?.[0]?.hsn;
+  const candidates = material.hsnCandidates ?? [];
+  const selectedHsn = manualHsn.trim() || candidates[selectedIdx]?.hsn;
 
   const handleApprove = async () => {
-    const hsn = manualHsn.trim() || topHsn;
-    if (!hsn) return;
+    if (!selectedHsn) return;
     setLoading(true);
     setFeedback(null);
     try {
       if (manualHsn.trim()) {
-        await submitManualHsn(material.materialId, manualHsn.trim(), manualReason || 'Manual override');
+        await submitManualHsn(
+          material.materialId,
+          manualHsn.trim(),
+          manualReason || 'Manual override',
+        );
       } else {
-        await approveHsn(material.materialId, hsn);
+        await approveHsn(material.materialId, selectedHsn);
       }
-      setFeedback({ type: 'success', msg: `HSN ${hsn} approved for ${material.materialId}` });
-      onApproved?.(material.materialId, hsn);
-    } catch {
-      setFeedback({ type: 'error', msg: 'Approval failed. Please try again.' });
+      setFeedback({ type: 'success', msg: `HSN ${selectedHsn} approved for ${material.materialId}` });
+      onApproved?.(material.materialId, selectedHsn);
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        msg: err.message?.replace(/^Lookup POST \/approve failed \(\d+\): /, '') || 'Approval failed. Please try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -85,7 +81,6 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
         aria-label={`Material detail: ${material.materialId}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Header ── */}
         <div className="hsn-drawer__header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -104,19 +99,16 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
           </button>
         </div>
 
-        {/* ── Body ── */}
         <div className="hsn-drawer__body">
-
-          {/* Metadata grid */}
           <section>
             <div className="hsn-drawer__section-title">Material Information</div>
             <div className="hsn-meta-grid">
               {[
                 { label: 'Material Type', value: material.materialType, code: true },
-                { label: 'Category',      value: material.category },
-                { label: 'Group',         value: material.group },
-                { label: 'Plant',         value: material.plant, code: true },
-                { label: 'Reviewed By',   value: material.reviewedBy ?? 'Not yet reviewed' },
+                { label: 'Category', value: material.category },
+                { label: 'Group', value: material.group },
+                { label: 'Plant', value: material.plant, code: true },
+                { label: 'Reviewed By', value: material.reviewedBy ?? 'Not yet reviewed' },
                 { label: 'Last Modified', value: formatDate(material.lastModified) },
               ].map(({ label, value, code }) => (
                 <div key={label}>
@@ -129,54 +121,62 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
             </div>
           </section>
 
-          {/* HSN Candidates */}
           <section>
             <div className="hsn-drawer__section-title">HSN Candidates</div>
+            <p className="hsn-drawer__hint">Click a candidate to select it for approval.</p>
             <div className="hsn-candidates">
-              {material.hsnCandidates?.map((c, idx) => (
-                <div
-                  key={c.hsn}
-                  className={`hsn-candidate-card ${idx === 0 ? 'hsn-candidate-card--top' : ''}`}
-                >
-                  <div className="hsn-candidate-card__rank">
-                    {rankLabel[idx]} choice
-                    {idx === 0 && <span style={{ marginLeft: 4, color: '#16a34a' }}>★ Top</span>}
-                  </div>
-                  <div className="hsn-candidate-card__hsn">{c.hsn}</div>
-                  <div className="hsn-candidate-card__bar-wrap">
-                    <div
-                      className="hsn-candidate-card__bar"
-                      style={{
-                        width: `${Math.round(c.confidence * 100)}%`,
-                        background: confidenceBarColor(c.confidence),
-                      }}
-                    />
-                  </div>
-                  <div className="hsn-candidate-card__confidence">
-                    {Math.round(c.confidence * 100)}% confidence
-                  </div>
-                  <div className="hsn-candidate-card__source">{c.source}</div>
-                </div>
-              ))}
+              {candidates.map((c, idx) => {
+                const isSelected = !manualHsn.trim() && selectedIdx === idx;
+                return (
+                  <button
+                    key={c.hsn}
+                    type="button"
+                    className={`hsn-candidate-card hsn-candidate-card--clickable ${idx === 0 ? 'hsn-candidate-card--top' : ''} ${isSelected ? 'hsn-candidate-card--selected' : ''}`}
+                    onClick={() => {
+                      setSelectedIdx(idx);
+                      setManualHsn('');
+                    }}
+                    aria-pressed={isSelected}
+                    aria-label={`Select HSN ${c.hsn}, ${Math.round(c.confidence * 100)}% confidence`}
+                  >
+                    <div className="hsn-candidate-card__rank">
+                      {rankLabel[idx]} choice
+                      {idx === 0 && <span style={{ marginLeft: 4, color: '#16a34a' }}>★ Top</span>}
+                    </div>
+                    <div className="hsn-candidate-card__hsn">{c.hsn}</div>
+                    <div className="hsn-candidate-card__bar-wrap">
+                      <div
+                        className="hsn-candidate-card__bar"
+                        style={{
+                          width: `${Math.round(c.confidence * 100)}%`,
+                          background: confidenceBarColor(c.confidence),
+                        }}
+                      />
+                    </div>
+                    <div className="hsn-candidate-card__confidence">
+                      {Math.round(c.confidence * 100)}% confidence
+                    </div>
+                    <div className="hsn-candidate-card__source">{c.source}</div>
+                  </button>
+                );
+              })}
             </div>
           </section>
 
-          {/* Manual Override — always visible */}
           <section>
             <div className="hsn-drawer__section-title">Manual Override</div>
             <div className="hsn-override">
               <div className="hsn-override__row">
                 <div className="hsn-override__input-wrap">
-                  <div className="hsn-override__label">HSN Code</div>
+                  <div className="hsn-override__label">HSN / SAC Code</div>
                   <input
                     id={`drawer-manual-hsn-${material.materialId}`}
                     type="text"
                     className="hsn-override__input"
-                    placeholder="8-digit HSN code…"
+                    placeholder="Enter any code to approve…"
                     value={manualHsn}
-                    maxLength={8}
-                    onChange={(e) => setManualHsn(e.target.value.replace(/\D/g, ''))}
-                    aria-label="Manual HSN override code"
+                    onChange={(e) => setManualHsn(e.target.value)}
+                    aria-label="Manual override code"
                   />
                 </div>
               </div>
@@ -194,7 +194,6 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
             </div>
           </section>
 
-          {/* Feedback message */}
           {feedback && (
             <div
               style={{
@@ -203,8 +202,8 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
                 fontSize: 13,
                 fontWeight: 500,
                 background: feedback.type === 'success' ? '#dcfce7' : '#fee2e2',
-                color:      feedback.type === 'success' ? '#166534' : '#991b1b',
-                border:     `1px solid ${feedback.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+                color: feedback.type === 'success' ? '#166534' : '#991b1b',
+                border: `1px solid ${feedback.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
               }}
               role="status"
             >
@@ -213,12 +212,11 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
           )}
         </div>
 
-        {/* ── Footer ── */}
         <div className="hsn-drawer__footer">
           <div className="hsn-drawer__footer-left">
-            {material.reviewedBy
-              ? `Last reviewed by ${material.reviewedBy}`
-              : 'Not yet reviewed'}
+            {selectedHsn
+              ? `Will approve: ${selectedHsn}`
+              : (material.reviewedBy ? `Last reviewed by ${material.reviewedBy}` : 'Select a candidate or enter a code')}
           </div>
           <div className="hsn-drawer__footer-actions">
             <button
@@ -232,9 +230,9 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
             <button
               className="hsn-btn hsn-btn--approve"
               onClick={handleApprove}
-              disabled={loading}
+              disabled={loading || !selectedHsn}
               type="button"
-              aria-label={`Approve HSN ${manualHsn.trim() || topHsn} for ${material.materialId}`}
+              aria-label={`Approve HSN ${selectedHsn} for ${material.materialId}`}
             >
               {loading ? 'Approving…' : `Approve${manualHsn.trim() ? ' Override' : ''}`}
             </button>

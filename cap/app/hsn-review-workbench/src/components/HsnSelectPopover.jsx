@@ -79,7 +79,7 @@ export default function HsnSelectPopover({ open, onClose, anchorRef, material, o
     setLoading(true);
     try {
       const isManual = manualHsn.trim().length > 0;
-      const hsn      = isManual ? manualHsn.trim() : candidates[selectedIdx]?.hsn;
+      const hsn = isManual ? manualHsn.trim() : candidates[selectedIdx]?.hsn;
 
       if (!hsn) return;
 
@@ -152,11 +152,10 @@ export default function HsnSelectPopover({ open, onClose, anchorRef, material, o
           id={`hsn-manual-${material.materialId}`}
           type="text"
           className="hsn-popover__manual-input"
-          placeholder="Enter HSN manually (8 digits)…"
+          placeholder="Enter any code…"
           value={manualHsn}
-          maxLength={8}
-          onChange={(e) => setManualHsn(e.target.value.replace(/\D/g, ''))}
-          aria-label="Manual HSN entry"
+          onChange={(e) => setManualHsn(e.target.value)}
+          aria-label="Manual code entry"
         />
       </div>
 

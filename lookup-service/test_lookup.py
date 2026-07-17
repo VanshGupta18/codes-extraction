@@ -149,6 +149,13 @@ def test_is_valid_code():
     assert idx.is_valid_code("85444200", "DIEN") is False
 
 
+def test_normalize_tariff_code():
+    from ranking_core import normalize_tariff_code
+    assert normalize_tariff_code("85444200", "ZOES") == "85444200"
+    assert normalize_tariff_code("1011010", "ZOES") == "01011010"
+    assert normalize_tariff_code("995411", "DIEN") == "995411"
+
+
 def test_hybrid_bm25_only_when_zero_embedding():
     """Passing an all-zero embedding should degrade to BM25-only (not crash)."""
     idx = _make_index()
@@ -191,6 +198,7 @@ _tests = [
     test_approved_boost_ranks_higher,
     test_self_learning_hot_reload,
     test_is_valid_code,
+    test_normalize_tariff_code,
     test_hybrid_bm25_only_when_zero_embedding,
     test_hybrid_cosine_changes_ranking,
 ]

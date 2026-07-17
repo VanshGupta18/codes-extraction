@@ -12,7 +12,6 @@ from pydantic import BaseModel
 import cap_client
 import embedding_client
 import ranking_core
-from ranking_core import tariff_for
 
 app = FastAPI(title="HSN Suggestion Service")
 _batch_running = False
@@ -111,26 +110,22 @@ async def approve(req: ApproveRequest):
     if details is None:
         raise HTTPException(404, f"No material master or legacy data for '{req.materialNumber}'")
 
-    material_type = details.get("MaterialType") or ""
-    if not index.is_valid_code(req.chosenCode, material_type):
-        tariff = tariff_for(material_type)
-        raise HTTPException(
-            400,
-            f"Code '{req.chosenCode}' is not a valid {tariff} code in the government master.",
-        )
+    chosen = (req.chosenCode or "").strip()
+    if not chosen:
+        raise HTTPException(400, "chosenCode is required")
 
     description = details["Description"]
-    await cap_client.approve_classification(req.materialNumber, description, req.chosenCode)
+    await cap_client.approve_classification(req.materialNumber, description, chosen)
 
     index.add_document({
         "MaterialNumber": req.materialNumber,
-        "Code": req.chosenCode,
+        "Code": chosen,
         "Description": description,
         "Source": "APPROVED",
     })
-    await ranking_core.upsert_approved_embedding(req.chosenCode, description)
+    await ranking_core.upsert_approved_embedding(chosen, description)
 
-    return {"materialNumber": req.materialNumber, "hsn": req.chosenCode}
+    return {"materialNumber": req.materialNumber, "hsn": chosen}
 
 
 async def _run_batch_background() -> None:

@@ -18,6 +18,15 @@ def tariff_for(material_type: str) -> str:
     return "SAC" if (material_type or "").upper() in _SERVICE_TYPES else "HSN"
 
 
+def normalize_tariff_code(code: str, material_type: str = "") -> str:
+    """Pad numeric codes to govt master width (HSN 8 / SAC 6)."""
+    cleaned = (code or "").strip()
+    if not cleaned.isdigit():
+        return cleaned
+    width = 6 if tariff_for(material_type) == "SAC" else 8
+    return cleaned.zfill(width)
+
+
 def normalize_rows(raw: list[dict], code_key: str = "Code", source: str = "GOVT") -> list[dict]:
     rows = []
     for row in raw:
