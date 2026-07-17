@@ -17,6 +17,12 @@ export default function App() {
       {/* Shell header */}
       <header className="hsn-shell-header" role="banner">
         <span className="hsn-shell-header__logo" aria-label="Maruti Suzuki">
+          <img
+            src={`${import.meta.env.BASE_URL}logo-mark.svg`}
+            alt=""
+            className="hsn-shell-header__logo-icon"
+            aria-hidden="true"
+          />
           Maruti Suzuki
         </span>
         <div className="hsn-shell-header__divider" aria-hidden="true" />

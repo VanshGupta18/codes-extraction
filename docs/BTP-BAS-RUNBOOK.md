@@ -198,6 +198,7 @@ After **approve**, one APPROVED row is upserted to HANA automatically — full i
 | OOM on CF | Batch on API dyno | Use `hsn-lookup-worker` CF task only |
 | 401 lookup→CAP | Missing JWT | Verify xsuaa binding on lookup + worker |
 | UI blank in prod | UI not built | Confirm MTA `build:ui` step; check CAP serves `dist/` |
+| `/api/*` POST 403 (OData GET 200) | Approuter CSRF on `/api` route | `xs-app.json`: `"csrfProtection": false` on `/api`; UI sends `X-CSRF-Token` on lookup POSTs |
 | Not in Review queue | No MARA row | Legacy queue only; material needs MARA match |
 | Vector SQL error | Vector engine off | Enable on HANA Cloud instance |
 | BuildpackCompileFailed (lookup) | Wrong `runtime.txt` or pip OOM/disk | Use `python-3.11.x`; 2G disk; `cf logs hsn-lookup-service --recent` during staging |

@@ -9,10 +9,14 @@ const ODATA = '/odata/v4/hsn';
 const LOOKUP_API = import.meta.env.VITE_LOOKUP_API_URL || '/api';
 
 async function lookupPost(path, body) {
+  const csrf = await fetchCsrfToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (csrf) headers['X-CSRF-Token'] = csrf;
+
   const res = await fetch(`${LOOKUP_API}${path}`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {

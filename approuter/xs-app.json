@@ -13,7 +13,8 @@
       "source": "^/api/(.*)",
       "target": "/$1",
       "destination": "hsn-lookup-api",
-      "authenticationType": "xsuaa"
+      "authenticationType": "xsuaa",
+      "csrfProtection": false
     },
     {
       "source": "^/(.*)",
