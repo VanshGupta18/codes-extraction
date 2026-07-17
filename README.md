@@ -19,7 +19,7 @@ Ranking: **BM25 shortlist** (in-memory) + **HANA cosine similarity** (precompute
 
 ## Quick start (BAS)
 
-See **[docs/BTP-BAS-RUNBOOK.md](docs/BTP-BAS-RUNBOOK.md)** for full BTP/BAS configuration, deploy, and operations.
+Operational runbook: local copy at `docs/BTP-BAS-RUNBOOK.md` (not committed — `docs/` is gitignored).
 
 ```bash
 # 1. CAP + HANA
