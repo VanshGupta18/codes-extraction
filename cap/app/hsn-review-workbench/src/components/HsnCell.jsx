@@ -17,11 +17,9 @@ export default function HsnCell({ material, onApplied }) {
 
   const top = material.hsnCandidates?.[0];
 
-  const confidenceDotClass = (conf) => {
-    if (conf >= 0.85) return 'hsn-pill__dot--high';
-    if (conf >= 0.65) return 'hsn-pill__dot--medium';
-    return 'hsn-pill__dot--low';
-  };
+  const dotClass = material.status === 'Approved'
+    ? 'hsn-pill__dot--approved'
+    : 'hsn-pill__dot--default';
 
   const handlePillClick = (e) => {
     // Stop propagation so the table row click does NOT fire
@@ -43,7 +41,7 @@ export default function HsnCell({ material, onApplied }) {
         type="button"
       >
         <span
-          className={`hsn-pill__dot ${confidenceDotClass(top.confidence)}`}
+          className={`hsn-pill__dot ${dotClass}`}
           aria-hidden="true"
         />
         {top.hsn}

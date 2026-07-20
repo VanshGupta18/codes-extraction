@@ -29,6 +29,7 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
 
   if (!material) return null;
 
+  const isApproved = material.status === 'Approved';
   const candidates = material.hsnCandidates ?? [];
   const selectedHsn = manualHsn.trim() || candidates[selectedIdx]?.hsn;
 
@@ -121,78 +122,92 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
             </div>
           </section>
 
-          <section>
-            <div className="hsn-drawer__section-title">HSN Candidates</div>
-            <p className="hsn-drawer__hint">Click a candidate to select it for approval.</p>
-            <div className="hsn-candidates">
-              {candidates.map((c, idx) => {
-                const isSelected = !manualHsn.trim() && selectedIdx === idx;
-                return (
-                  <button
-                    key={c.hsn}
-                    type="button"
-                    className={`hsn-candidate-card hsn-candidate-card--clickable ${idx === 0 ? 'hsn-candidate-card--top' : ''} ${isSelected ? 'hsn-candidate-card--selected' : ''}`}
-                    onClick={() => {
-                      setSelectedIdx(idx);
-                      setManualHsn('');
-                    }}
-                    aria-pressed={isSelected}
-                    aria-label={`Select HSN ${c.hsn}, ${Math.round(c.confidence * 100)}% confidence`}
-                  >
-                    <div className="hsn-candidate-card__rank">
-                      {rankLabel[idx]} choice
-                      {idx === 0 && <span style={{ marginLeft: 4, color: '#16a34a' }}>★ Top</span>}
-                    </div>
-                    <div className="hsn-candidate-card__hsn">{c.hsn}</div>
-                    <div className="hsn-candidate-card__bar-wrap">
-                      <div
-                        className="hsn-candidate-card__bar"
-                        style={{
-                          width: `${Math.round(c.confidence * 100)}%`,
-                          background: confidenceBarColor(c.confidence),
-                        }}
-                      />
-                    </div>
-                    <div className="hsn-candidate-card__confidence">
-                      {Math.round(c.confidence * 100)}% confidence
-                    </div>
-                    <div className="hsn-candidate-card__source">{c.source}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section>
-            <div className="hsn-drawer__section-title">Manual Override</div>
-            <div className="hsn-override">
-              <div className="hsn-override__row">
-                <div className="hsn-override__input-wrap">
-                  <div className="hsn-override__label">HSN / SAC Code</div>
-                  <input
-                    id={`drawer-manual-hsn-${material.materialId}`}
-                    type="text"
-                    className="hsn-override__input"
-                    placeholder="Enter any code to approve…"
-                    value={manualHsn}
-                    onChange={(e) => setManualHsn(e.target.value)}
-                    aria-label="Manual override code"
-                  />
+          {isApproved ? (
+            <div className="hsn-approved-banner" role="status">
+              <span className="hsn-approved-banner__icon">✔</span>
+              <div>
+                <div className="hsn-approved-banner__title">Already Approved</div>
+                <div className="hsn-approved-banner__hsn">
+                  HSN {candidates[0]?.hsn ?? '—'} has been approved for this material.
                 </div>
               </div>
-              <div>
-                <div className="hsn-override__label">Reason / Justification</div>
-                <textarea
-                  id={`drawer-manual-reason-${material.materialId}`}
-                  className="hsn-override__textarea"
-                  placeholder="Provide audit justification for the override…"
-                  value={manualReason}
-                  onChange={(e) => setManualReason(e.target.value)}
-                  aria-label="Override reason"
-                />
-              </div>
             </div>
-          </section>
+          ) : (
+            <>
+              <section>
+                <div className="hsn-drawer__section-title">HSN Candidates</div>
+                <p className="hsn-drawer__hint">Click a candidate to select it for approval.</p>
+                <div className="hsn-candidates">
+                  {candidates.map((c, idx) => {
+                    const isSelected = !manualHsn.trim() && selectedIdx === idx;
+                    return (
+                      <button
+                        key={c.hsn}
+                        type="button"
+                        className={`hsn-candidate-card hsn-candidate-card--clickable ${idx === 0 ? 'hsn-candidate-card--top' : ''} ${isSelected ? 'hsn-candidate-card--selected' : ''}`}
+                        onClick={() => {
+                          setSelectedIdx(idx);
+                          setManualHsn('');
+                        }}
+                        aria-pressed={isSelected}
+                        aria-label={`Select HSN ${c.hsn}, ${Math.round(c.confidence * 100)}% confidence`}
+                      >
+                        <div className="hsn-candidate-card__rank">
+                          {rankLabel[idx]} choice
+                          {idx === 0 && <span style={{ marginLeft: 4, color: '#16a34a' }}>★ Top</span>}
+                        </div>
+                        <div className="hsn-candidate-card__hsn">{c.hsn}</div>
+                        <div className="hsn-candidate-card__bar-wrap">
+                          <div
+                            className="hsn-candidate-card__bar"
+                            style={{
+                              width: `${Math.round(c.confidence * 100)}%`,
+                              background: confidenceBarColor(c.confidence),
+                            }}
+                          />
+                        </div>
+                        <div className="hsn-candidate-card__confidence">
+                          {Math.round(c.confidence * 100)}% confidence
+                        </div>
+                        <div className="hsn-candidate-card__source">{c.source}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section>
+                <div className="hsn-drawer__section-title">Manual Override</div>
+                <div className="hsn-override">
+                  <div className="hsn-override__row">
+                    <div className="hsn-override__input-wrap">
+                      <div className="hsn-override__label">HSN / SAC Code</div>
+                      <input
+                        id={`drawer-manual-hsn-${material.materialId}`}
+                        type="text"
+                        className="hsn-override__input"
+                        placeholder="Enter any code to approve…"
+                        value={manualHsn}
+                        onChange={(e) => setManualHsn(e.target.value)}
+                        aria-label="Manual override code"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="hsn-override__label">Reason / Justification</div>
+                    <textarea
+                      id={`drawer-manual-reason-${material.materialId}`}
+                      className="hsn-override__textarea"
+                      placeholder="Provide audit justification for the override…"
+                      value={manualReason}
+                      onChange={(e) => setManualReason(e.target.value)}
+                      aria-label="Override reason"
+                    />
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
 
           {feedback && (
             <div
@@ -214,7 +229,9 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
 
         <div className="hsn-drawer__footer">
           <div className="hsn-drawer__footer-left">
-            {selectedHsn
+            {isApproved
+              ? 'This material has already been approved.'
+              : selectedHsn
               ? `Will approve: ${selectedHsn}`
               : (material.reviewedBy ? `Last reviewed by ${material.reviewedBy}` : 'Select a candidate or enter a code')}
           </div>
@@ -225,17 +242,19 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
               disabled={loading}
               type="button"
             >
-              Edit Later
+              {isApproved ? 'Close' : 'Edit Later'}
             </button>
-            <button
-              className="hsn-btn hsn-btn--approve"
-              onClick={handleApprove}
-              disabled={loading || !selectedHsn}
-              type="button"
-              aria-label={`Approve HSN ${selectedHsn} for ${material.materialId}`}
-            >
-              {loading ? 'Approving…' : `Approve${manualHsn.trim() ? ' Override' : ''}`}
-            </button>
+            {!isApproved && (
+              <button
+                className="hsn-btn hsn-btn--approve"
+                onClick={handleApprove}
+                disabled={loading || !selectedHsn}
+                type="button"
+                aria-label={`Approve HSN ${selectedHsn} for ${material.materialId}`}
+              >
+                {loading ? 'Approving…' : `Approve${manualHsn.trim() ? ' Override' : ''}`}
+              </button>
+            )}
           </div>
         </div>
       </aside>

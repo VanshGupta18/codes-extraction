@@ -442,9 +442,60 @@ body {
   flex-shrink: 0;
 }
 
+.hsn-pill__dot--default  { background: #9ca3af; }
+.hsn-pill__dot--approved { background: #16a34a; }
+
+/* Confidence dot colors — used inside popover candidate list */
 .hsn-pill__dot--high   { background: #16a34a; }
 .hsn-pill__dot--medium { background: #d97706; }
 .hsn-pill__dot--low    { background: #dc2626; }
+
+/* ── Already Approved Banner (Drawer) ──────────────────────── */
+.hsn-approved-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 0 0 4px;
+}
+.hsn-approved-banner__icon {
+  font-size: 18px;
+  color: #16a34a;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.hsn-approved-banner__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #15803d;
+}
+.hsn-approved-banner__hsn {
+  font-size: 13px;
+  color: #166534;
+  margin-top: 2px;
+}
+
+/* ── Already Approved State (Popover) ──────────────────────── */
+.hsn-popover__approved {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #f0fdf4;
+  border-bottom: 1px solid #bbf7d0;
+}
+.hsn-popover__approved-icon {
+  font-size: 20px;
+  color: #16a34a;
+  flex-shrink: 0;
+}
+.hsn-popover__approved-text {
+  font-size: 13px;
+  color: #15803d;
+}
 
 .hsn-pill__chevron {
   font-size: 10px;

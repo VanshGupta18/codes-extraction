@@ -75,6 +75,8 @@ export default function HsnSelectPopover({ open, onClose, anchorRef, material, o
     return 'hsn-pill__dot--low';
   };
 
+  const isApproved = material.status === 'Approved';
+
   const handleApply = async () => {
     setLoading(true);
     try {
@@ -106,78 +108,108 @@ export default function HsnSelectPopover({ open, onClose, anchorRef, material, o
       aria-label="Select HSN Code"
     >
       {/* Header */}
-      <div className="hsn-popover__header">Select HSN Code</div>
+      <div className="hsn-popover__header">
+        {isApproved ? 'HSN Status' : 'Select HSN Code'}
+      </div>
 
-      {/* Candidate radio list */}
-      <div className="hsn-popover__candidates" role="radiogroup" aria-label="HSN candidates">
-        {candidates.map((c, idx) => (
-          <label
-            key={c.hsn}
-            className={`hsn-popover__candidate ${idx === selectedIdx ? 'hsn-popover__candidate--selected' : ''}`}
-            onClick={() => setSelectedIdx(idx)}
-          >
-            <input
-              type="radio"
-              className="hsn-popover__radio"
-              name={`hsn-candidate-${material.materialId}`}
-              checked={idx === selectedIdx}
-              onChange={() => setSelectedIdx(idx)}
-            />
-            <div className="hsn-popover__cand-info">
-              <div className="hsn-popover__cand-hsn">{c.hsn}</div>
-              <div className="hsn-popover__cand-meta">
-                <span className="hsn-popover__source">{c.source}</span>
-                <span
-                  className={`hsn-popover__confidence ${confidenceClass(c.confidence)}`}
-                >
-                  <span
-                    className={`hsn-pill__dot ${dotClass(c.confidence)}`}
-                    style={{ display: 'inline-block', marginRight: 3 }}
-                  />
-                  {Math.round(c.confidence * 100)}%
-                </span>
-              </div>
+      {isApproved ? (
+        /* Already-approved state */
+        <div className="hsn-popover__approved">
+          <span className="hsn-popover__approved-icon">✔</span>
+          <div className="hsn-popover__approved-text">
+            <strong>Already Approved</strong>
+            <div style={{ fontSize: 12, color: 'var(--hsn-on-surface-variant)', marginTop: 2 }}>
+              HSN {candidates[0]?.hsn ?? '—'} is approved.
             </div>
-          </label>
-        ))}
-      </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Candidate radio list */}
+          <div className="hsn-popover__candidates" role="radiogroup" aria-label="HSN candidates">
+            {candidates.map((c, idx) => (
+              <label
+                key={c.hsn}
+                className={`hsn-popover__candidate ${idx === selectedIdx ? 'hsn-popover__candidate--selected' : ''}`}
+                onClick={() => setSelectedIdx(idx)}
+              >
+                <input
+                  type="radio"
+                  className="hsn-popover__radio"
+                  name={`hsn-candidate-${material.materialId}`}
+                  checked={idx === selectedIdx}
+                  onChange={() => setSelectedIdx(idx)}
+                />
+                <div className="hsn-popover__cand-info">
+                  <div className="hsn-popover__cand-hsn">{c.hsn}</div>
+                  <div className="hsn-popover__cand-meta">
+                    <span className="hsn-popover__source">{c.source}</span>
+                    <span
+                      className={`hsn-popover__confidence ${confidenceClass(c.confidence)}`}
+                    >
+                      <span
+                        className={`hsn-pill__dot ${dotClass(c.confidence)}`}
+                        style={{ display: 'inline-block', marginRight: 3 }}
+                      />
+                      {Math.round(c.confidence * 100)}%
+                    </span>
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
 
-      {/* Divider */}
-      <div className="hsn-popover__divider" />
+          {/* Divider */}
+          <div className="hsn-popover__divider" />
 
-      {/* Always-visible manual entry */}
-      <div className="hsn-popover__manual">
-        <div className="hsn-popover__manual-label">Manual Override</div>
-        <input
-          id={`hsn-manual-${material.materialId}`}
-          type="text"
-          className="hsn-popover__manual-input"
-          placeholder="Enter any code…"
-          value={manualHsn}
-          onChange={(e) => setManualHsn(e.target.value)}
-          aria-label="Manual code entry"
-        />
-      </div>
+          {/* Always-visible manual entry */}
+          <div className="hsn-popover__manual">
+            <div className="hsn-popover__manual-label">Manual Override</div>
+            <input
+              id={`hsn-manual-${material.materialId}`}
+              type="text"
+              className="hsn-popover__manual-input"
+              placeholder="Enter any code…"
+              value={manualHsn}
+              onChange={(e) => setManualHsn(e.target.value)}
+              aria-label="Manual code entry"
+            />
+          </div>
 
-      {/* Action buttons */}
-      <div className="hsn-popover__actions">
-        <button
-          className="hsn-btn hsn-btn--ghost"
-          onClick={onClose}
-          disabled={loading}
-          type="button"
-        >
-          Cancel
-        </button>
-        <button
-          className="hsn-btn hsn-btn--primary"
-          onClick={handleApply}
-          disabled={loading}
-          type="button"
-        >
-          {loading ? 'Applying…' : 'Apply'}
-        </button>
-      </div>
+          {/* Action buttons */}
+          <div className="hsn-popover__actions">
+            <button
+              className="hsn-btn hsn-btn--ghost"
+              onClick={onClose}
+              disabled={loading}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="hsn-btn hsn-btn--primary"
+              onClick={handleApply}
+              disabled={loading}
+              type="button"
+            >
+              {loading ? 'Applying…' : 'Apply'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Close button always shown when approved */}
+      {isApproved && (
+        <div className="hsn-popover__actions">
+          <button
+            className="hsn-btn hsn-btn--ghost"
+            onClick={onClose}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+      )}
     </div>
   );
 }
