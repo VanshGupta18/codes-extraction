@@ -144,7 +144,7 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
                       <button
                         key={c.hsn}
                         type="button"
-                        className={`hsn-candidate-card hsn-candidate-card--clickable ${idx === 0 ? 'hsn-candidate-card--top' : ''} ${isSelected ? 'hsn-candidate-card--selected' : ''}`}
+                        className={`hsn-candidate-card hsn-candidate-card--clickable ${isSelected ? 'hsn-candidate-card--selected' : ''}`}
                         onClick={() => {
                           setSelectedIdx(idx);
                           setManualHsn('');
