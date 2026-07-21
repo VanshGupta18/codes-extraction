@@ -1210,13 +1210,17 @@ body {
 }
 
 .hsn-mm__identity .hsn-mm__row {
-  grid-template-columns: 110px minmax(0, 1fr);
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: start;
 }
 
 .hsn-mm__identity .hsn-mm__label {
   text-align: left;
   font-weight: 600;
   color: var(--hsn-on-surface);
+  line-height: 28px;
+  white-space: normal;
+  overflow: visible;
 }
 
 /* Collapsible sections */
@@ -1292,8 +1296,8 @@ body {
 /* MM-style: right-aligned labels, tight rows */
 .hsn-mm__row {
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
-  align-items: center;
+  grid-template-columns: 168px minmax(0, 1fr);
+  align-items: start;
   gap: 8px;
   min-height: 30px;
 }
@@ -1303,10 +1307,11 @@ body {
   color: var(--hsn-on-surface-variant);
   font-size: 12px;
   font-weight: 500;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 28px;
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .hsn-mm__req {
@@ -1406,9 +1411,6 @@ select.hsn-mm__input {
   border: 1px solid var(--hsn-outline-variant);
   border-radius: var(--hsn-radius-lg);
   box-shadow: var(--hsn-shadow-card);
-  position: sticky;
-  bottom: 8px;
-  z-index: 2;
 }
 
 .hsn-mm__footer-note {
@@ -1431,7 +1433,7 @@ select.hsn-mm__input {
 
   .hsn-mm__row,
   .hsn-mm__identity .hsn-mm__row {
-    grid-template-columns: 120px minmax(0, 1fr);
+    grid-template-columns: 140px minmax(0, 1fr);
   }
 
   .hsn-mm__label,
