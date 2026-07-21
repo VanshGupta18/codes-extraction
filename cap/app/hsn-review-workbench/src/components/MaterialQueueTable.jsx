@@ -111,7 +111,7 @@ export default function MaterialQueueTable({ onDataLoaded }) {
     setMaterials((prev) =>
       prev.map((m) =>
         m.materialId === materialId
-          ? { ...m, status: 'Approved', hsnCandidates: [{ hsn, confidence: 1.0, source: 'Manual' }, ...m.hsnCandidates.slice(1)] }
+          ? { ...m, status: 'Approved', hsnCandidates: [{ hsn, confidence: 1.0 }, ...m.hsnCandidates.slice(1)] }
           : m
       )
     );

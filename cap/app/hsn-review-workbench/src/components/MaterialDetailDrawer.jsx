@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { approveHsn, submitManualHsn } from '../services/odataClient';
+import { candidateRankLabel } from '../utils/candidateLabel';
 import StatusBadge from './StatusBadge';
 
 /**
@@ -58,8 +59,6 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
       setLoading(false);
     }
   };
-
-  const rankLabel = ['1st', '2nd', '3rd'];
 
   const confidenceBarColor = (conf) => {
     if (conf >= 0.85) return '#16a34a';
@@ -153,8 +152,7 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
                         aria-label={`Select HSN ${c.hsn}, ${Math.round(c.confidence * 100)}% confidence`}
                       >
                         <div className="hsn-candidate-card__rank">
-                          {rankLabel[idx]} choice
-                          {idx === 0 && <span style={{ marginLeft: 4, color: '#16a34a' }}>★ Top</span>}
+                          {candidateRankLabel(idx)}
                         </div>
                         <div className="hsn-candidate-card__hsn">{c.hsn}</div>
                         <div className="hsn-candidate-card__bar-wrap">
@@ -169,7 +167,6 @@ export default function MaterialDetailDrawer({ material, onClose, onApproved }) 
                         <div className="hsn-candidate-card__confidence">
                           {Math.round(c.confidence * 100)}% confidence
                         </div>
-                        <div className="hsn-candidate-card__source">{c.source}</div>
                       </button>
                     );
                   })}

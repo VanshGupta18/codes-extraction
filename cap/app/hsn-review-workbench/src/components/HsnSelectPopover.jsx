@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { approveHsn, submitManualHsn } from '../services/odataClient';
+import { candidateRankLabel } from '../utils/candidateLabel';
 
 /**
  * HsnSelectPopover
  *
  * A positioned popover rendered at the anchor element's bottom-left.
  * Contains:
- *   • 3 radio-button candidate rows (confidence %, source chip)
+ *   • 3 radio-button candidate rows (confidence %, rank label)
  *   • Highest-confidence candidate pre-selected on open
  *   • Always-visible manual HSN entry input (never collapsed)
  *   • Apply (primary) and Cancel (ghost) action buttons
@@ -143,7 +144,7 @@ export default function HsnSelectPopover({ open, onClose, anchorRef, material, o
                 <div className="hsn-popover__cand-info">
                   <div className="hsn-popover__cand-hsn">{c.hsn}</div>
                   <div className="hsn-popover__cand-meta">
-                    <span className="hsn-popover__source">{c.source}</span>
+                    <span className="hsn-popover__source">{candidateRankLabel(idx)}</span>
                     <span
                       className={`hsn-popover__confidence ${confidenceClass(c.confidence)}`}
                     >

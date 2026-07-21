@@ -106,7 +106,6 @@ export async function fetchMaterialQueue() {
       mat.hsnCandidates.push({
         hsn: cand.CandidateCode,
         confidence: cand.Score,
-        source: cand.Rank === 1 ? 'BM25 Top Match' : 'BM25 Alternative',
       });
       mat.status = 'AI-Assist';
     }
